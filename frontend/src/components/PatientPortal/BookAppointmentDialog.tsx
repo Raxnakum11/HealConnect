@@ -182,9 +182,9 @@ export default function BookAppointmentDialog({
               </div>
             )}
 
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-              <p className="text-sm text-orange-800 font-medium">
-                📋 Appointments must be booked at least 24 hours in advance.
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-800 font-medium">
+                � You can book appointments for today or any future date.
               </p>
             </div>
           </div>

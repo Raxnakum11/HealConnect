@@ -458,6 +458,25 @@ export const api = {
   prescriptions: PrescriptionsAPI,
   notifications: NotificationsAPI,
   appointments: AppointmentsAPI,
+  
+  // Convenience methods for backward compatibility
+  async getAppointments(params = {}) {
+    const response = await AppointmentsAPI.getAppointments(params);
+    console.log('API getAppointments response:', response);
+    return response;
+  },
+  
+  async createAppointment(appointmentData) {
+    return AppointmentsAPI.createAppointment(appointmentData);
+  },
+  
+  async updateAppointmentStatus(id, status, notes = '') {
+    return AppointmentsAPI.updateAppointmentStatus(id, status, notes);
+  },
+  
+  async cancelAppointment(id, cancelReason = '') {
+    return AppointmentsAPI.cancelAppointment(id, cancelReason);
+  }
 };
 
 // Default export for convenience

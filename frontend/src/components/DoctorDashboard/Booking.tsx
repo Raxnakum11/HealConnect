@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,19 @@ interface BookingProps {
 }
 
 const Booking: React.FC<BookingProps> = ({ bookings, handleBookingAction }) => {
+  const [approveDialogs, setApproveDialogs] = useState<{[key: string]: boolean}>({});
+  const [rejectDialogs, setRejectDialogs] = useState<{[key: string]: boolean}>({});
+
+  const handleApprove = (bookingId: string) => {
+    handleBookingAction(bookingId, 'approve');
+    setApproveDialogs(prev => ({ ...prev, [bookingId]: false }));
+  };
+
+  const handleReject = (bookingId: string) => {
+    handleBookingAction(bookingId, 'reject');
+    setRejectDialogs(prev => ({ ...prev, [bookingId]: false }));
+  };
+
   return (
     <>
       <div className="flex justify-between items-center">
@@ -33,7 +46,7 @@ const Booking: React.FC<BookingProps> = ({ bookings, handleBookingAction }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {bookings.map((booking) => (
           <Card key={booking.id} className={cn(
-            'bg-yellow-50 border border-yellow-200 rounded-xl p-6 shadow-medical',
+            'bg-white-120 border border-blue-200 rounded-xl p-6 shadow-medical',
             'relative mb-4'
           )}>
             <div className="flex justify-between items-center mb-2">
@@ -55,38 +68,73 @@ const Booking: React.FC<BookingProps> = ({ bookings, handleBookingAction }) => {
               <p><span className="font-semibold">Reason:</span> {booking.reason}</p>
             </div>
             <div className="flex gap-4 mt-4">
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="default" className="flex-1 flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5" /> Approve
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Are you sure you want to approve?</DialogTitle>
-                  </DialogHeader>
-                  <div className="flex gap-4 mt-4 justify-end">
-                    <Button variant="outline">Cancel</Button>
-                    <Button variant="default" onClick={() => handleBookingAction(booking.id, 'approve')}>Yes, Approve</Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="destructive" className="flex-1 flex items-center gap-2">
-                    <X className="w-5 h-5" /> Reject
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Are you sure you want to reject?</DialogTitle>
-                  </DialogHeader>
-                  <div className="flex gap-4 mt-4 justify-end">
-                    <Button variant="outline">Cancel</Button>
-                    <Button variant="destructive" onClick={() => handleBookingAction(booking.id, 'reject')}>Yes, Reject</Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              {booking.status === 'pending' && (
+                <>
+                  <Dialog open={approveDialogs[booking.id]} onOpenChange={(open) => setApproveDialogs(prev => ({ ...prev, [booking.id]: open }))}>
+                    <DialogTrigger asChild>
+                      <Button variant="default" className="flex-1 flex items-center gap-2">
+                        <CheckCircle className="w-5 h-5" /> Approve
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Approve Appointment</DialogTitle>
+                      </DialogHeader>
+                      <div className="py-4">
+                        <p>Are you sure you want to approve this appointment for <strong>{booking.patientName}</strong>?</p>
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          <p>Date: {booking.date}</p>
+                          <p>Time: {booking.time}</p>
+                          <p>Type: {booking.type}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-4 mt-4 justify-end">
+                        <Button variant="outline" onClick={() => setApproveDialogs(prev => ({ ...prev, [booking.id]: false }))}>
+                          Cancel
+                        </Button>
+                        <Button variant="default" onClick={() => handleApprove(booking.id)}>
+                          Yes, Approve
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  <Dialog open={rejectDialogs[booking.id]} onOpenChange={(open) => setRejectDialogs(prev => ({ ...prev, [booking.id]: open }))}>
+                    <DialogTrigger asChild>
+                      <Button variant="destructive" className="flex-1 flex items-center gap-2">
+                        <X className="w-5 h-5" /> Reject
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Reject Appointment</DialogTitle>
+                      </DialogHeader>
+                      <div className="py-4">
+                        <p>Are you sure you want to reject this appointment for <strong>{booking.patientName}</strong>?</p>
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          <p>Date: {booking.date}</p>
+                          <p>Time: {booking.time}</p>
+                          <p>Type: {booking.type}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-4 mt-4 justify-end">
+                        <Button variant="outline" onClick={() => setRejectDialogs(prev => ({ ...prev, [booking.id]: false }))}>
+                          Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={() => handleReject(booking.id)}>
+                          Yes, Reject
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </>
+              )}
+              {booking.status !== 'pending' && (
+                <div className="text-center w-full py-2">
+                  <Badge variant={booking.status === 'approved' ? 'default' : 'destructive'}>
+                    {booking.status === 'approved' ? 'Approved' : 'Rejected'}
+                  </Badge>
+                </div>
+              )}
             </div>
           </Card>
         ))}

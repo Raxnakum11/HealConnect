@@ -17,20 +17,19 @@ const router = express.Router();
 // Validation middleware
 const createAppointmentValidation = [
   body('doctorId')
-    .notEmpty()
-    .withMessage('Doctor ID is required')
+    .optional()
     .isMongoId()
     .withMessage('Invalid doctor ID'),
   body('date')
     .notEmpty()
     .withMessage('Date is required')
-    .isISO8601()
+    .isDate()
     .withMessage('Invalid date format'),
   body('timeSlot')
     .notEmpty()
     .withMessage('Time slot is required')
-    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
-    .withMessage('Invalid time format (HH:MM)'),
+    .matches(/^(0?[1-9]|1[0-2]):[0-5][0-9]\s?(AM|PM)$/i)
+    .withMessage('Invalid time format (e.g., 02:00 PM)'),
   body('type')
     .notEmpty()
     .withMessage('Appointment type is required')
@@ -48,8 +47,8 @@ const createAppointmentValidation = [
   body('reason')
     .notEmpty()
     .withMessage('Reason is required')
-    .isLength({ min: 10, max: 500 })
-    .withMessage('Reason must be between 10-500 characters')
+    .isLength({ min: 3, max: 500 })
+    .withMessage('Reason must be between 3-500 characters')
 ];
 
 const updateStatusValidation = [

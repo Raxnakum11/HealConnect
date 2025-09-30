@@ -239,10 +239,11 @@ export function DoctorDashboard() {
 
       // Load appointments/bookings from API
       try {
-        const appointmentsData = await api.appointments.getAppointments();
-        const formattedBookings = appointmentsData.data?.map(appointment => ({
-          id: appointment._id,
-          patientName: appointment.patientName,
+        const response = await api.getAppointments();
+        const appointmentsData = response.data || response || [];
+        const formattedBookings = appointmentsData.map(appointment => ({
+          id: appointment._id || appointment.id,
+          patientName: appointment.patientName || appointment.patientId?.name || 'Unknown Patient',
           patientId: appointment.patientId?.patientId || appointment.patientId,
           date: new Date(appointment.date).toLocaleDateString(),
           time: appointment.time,
@@ -251,6 +252,7 @@ export function DoctorDashboard() {
           status: appointment.status
         })) || [];
         setBookings(formattedBookings);
+        console.log('Loaded appointments:', formattedBookings);
       } catch (error) {
         console.error('Error loading appointments:', error);
         // Initialize as empty array if API fails
@@ -512,7 +514,7 @@ export function DoctorDashboard() {
   const handleBookingAction = async (bookingId: string, action: 'approve' | 'reject') => {
     try {
       const status = action === 'approve' ? 'approved' : 'rejected';
-      await api.appointments.updateAppointmentStatus(bookingId, status);
+      await api.updateAppointmentStatus(bookingId, status);
       
       // Update local state
       const updatedBookings = bookings.map(booking =>

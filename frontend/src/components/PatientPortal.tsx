@@ -201,17 +201,26 @@ export default function PatientPortal() {
   // Load data from API
   const loadData = async () => {
     try {
-      // For now, initialize with empty arrays since the patient-specific APIs need to be implemented
-      // Later these will fetch data based on current patient ID from authentication context
-      
-      setAppointments([]);
-      setPrescriptions([]);
-      setAlerts([]);
-      setReports([]);
+      // Load appointments for the current patient
+      const appointmentsData = await api.getAppointments();
+      const formattedAppointments = appointmentsData.map((apt: any) => ({
+        id: apt._id || apt.id,
+        date: apt.date,
+        time: apt.time,
+        type: apt.type,
+        reason: apt.reason,
+        status: apt.status || 'pending',
+        slotNumber: apt.slotNumber
+      }));
+      setAppointments(formattedAppointments);
       
       // Load camps from API (these are public/shared data)
       const campsData = await api.camps.getAll();
       setCamps(campsData);
+      
+      // Initialize other data
+      setAlerts([]);
+      setReports([]);
       
     } catch (error) {
       console.error('Error loading data:', error);
@@ -231,7 +240,7 @@ export default function PatientPortal() {
   };
 
   // Book appointment function
-  const bookAppointment = () => {
+  const bookAppointment = async () => {
     if (!selectedDate || !newAppointment.type || !newAppointment.reason || !newAppointment.timeSlot) {
       toast({
         title: "Missing Information",
@@ -241,56 +250,75 @@ export default function PatientPortal() {
       return;
     }
 
-    const formattedDate = format(selectedDate, 'yyyy-MM-dd');
-    const availableSlots = checkAvailableSlots(selectedDate, newAppointment.timeSlot);
-    
-    if (availableSlots === 0) {
+    try {
+      const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+      const availableSlots = checkAvailableSlots(selectedDate, newAppointment.timeSlot);
+      
+      if (availableSlots === 0) {
+        toast({
+          title: "Slot Unavailable",
+          description: "This time slot is fully booked. Please select another time.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create appointment via API
+      const appointmentData = {
+        date: formattedDate,
+        timeSlot: newAppointment.timeSlot,
+        type: newAppointment.type,
+        reason: newAppointment.reason,
+      };
+
+      const response = await api.createAppointment(appointmentData);
+      
+      // Add to local state
+      const newAppointmentObj: Appointment = {
+        id: response.id || Date.now().toString(),
+        date: formattedDate,
+        time: newAppointment.timeSlot,
+        type: newAppointment.type,
+        reason: newAppointment.reason,
+        status: 'pending',
+        slotNumber: 5 - availableSlots + 1
+      };
+
+      const updatedAppointments = [...appointments, newAppointmentObj];
+      setAppointments(updatedAppointments);
+
+      // Add notification
+      const newAlert: Alert = {
+        id: `appointment_${Date.now()}`,
+        type: 'appointment',
+        title: 'Appointment Booked',
+        message: `Your ${newAppointment.type} appointment has been scheduled for ${formattedDate} at ${newAppointment.timeSlot}`,
+        time: new Date().toLocaleTimeString(),
+        read: false,
+        priority: 'medium'
+      };
+      const updatedAlerts = [...alerts, newAlert];
+      setAlerts(updatedAlerts);
+      localStorage.setItem('patient_alerts', JSON.stringify(updatedAlerts));
+
       toast({
-        title: "Slot Unavailable",
-        description: "This time slot is fully booked. Please select another time.",
+        title: "Appointment Booked Successfully",
+        description: `Your appointment has been scheduled for ${format(selectedDate, 'PPP')} at ${newAppointment.timeSlot}`,
+      });
+
+      // Reset form
+      setNewAppointment({ type: '', reason: '', timeSlot: '' });
+      setSelectedDate(new Date());
+      setShowBookDialog(false);
+      
+    } catch (error) {
+      console.error('Error booking appointment:', error);
+      toast({
+        title: "Booking Failed",
+        description: error.message || "Failed to book appointment. Please try again.",
         variant: "destructive"
       });
-      return;
     }
-
-    const slotNumber = 5 - availableSlots + 1;
-    const appointment: Appointment = {
-      id: Date.now().toString(),
-      date: formattedDate,
-      time: newAppointment.timeSlot,
-      type: newAppointment.type,
-      reason: newAppointment.reason,
-      status: 'pending',
-      slotNumber
-    };
-
-    const updatedAppointments = [...appointments, appointment];
-    setAppointments(updatedAppointments);
-    localStorage.setItem('patient_appointments', JSON.stringify(updatedAppointments));
-
-    // Add notification
-    const newAlert: Alert = {
-      id: `appointment_${Date.now()}`,
-      type: 'appointment',
-      title: 'Appointment Booked',
-      message: `Your ${newAppointment.type} appointment has been scheduled for ${formattedDate} at ${newAppointment.timeSlot}`,
-      time: new Date().toLocaleTimeString(),
-      read: false,
-      priority: 'medium'
-    };
-    const updatedAlerts = [...alerts, newAlert];
-    setAlerts(updatedAlerts);
-    localStorage.setItem('patient_alerts', JSON.stringify(updatedAlerts));
-
-    toast({
-      title: "Appointment Booked",
-      description: `Your appointment has been scheduled for ${format(selectedDate, 'PPP')} at ${newAppointment.timeSlot}`,
-    });
-
-    // Reset form
-    setNewAppointment({ type: '', reason: '', timeSlot: '' });
-    setSelectedDate(new Date());
-    setShowBookDialog(false);
   };
 
   // Cancel appointment function
