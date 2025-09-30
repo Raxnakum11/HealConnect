@@ -433,6 +433,10 @@ class AppointmentsAPI {
     return HttpClient.put(`/appointments/${id}/status`, { status, notes });
   }
 
+  static async deleteAppointment(id) {
+    return HttpClient.delete(`/appointments/${id}`);
+  }
+
   static async cancelAppointment(id, cancelReason = '') {
     return HttpClient.put(`/appointments/${id}/cancel`, { cancelReason });
   }
@@ -472,6 +476,10 @@ export const api = {
   
   async updateAppointmentStatus(id, status, notes = '') {
     return AppointmentsAPI.updateAppointmentStatus(id, status, notes);
+  },
+  
+  async deleteAppointment(id) {
+    return AppointmentsAPI.deleteAppointment(id);
   },
   
   async cancelAppointment(id, cancelReason = '') {

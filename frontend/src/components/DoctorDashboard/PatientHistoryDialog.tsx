@@ -2,6 +2,7 @@ import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { formatDate } from '@/lib/utils';
 
 interface VisitRecord {
   id: string;
@@ -67,9 +68,9 @@ export default function PatientHistoryDialog({
                 {selectedPatient.visitHistory?.map((visit) => (
                   <Card key={visit.id} className="p-4">
                     <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-medium">Visit - {visit.date}</h4>
+                      <h4 className="font-medium">Visit - {formatDate(visit.date)}</h4>
                       {visit.nextVisit && (
-                        <Badge variant="outline">Next: {visit.nextVisit}</Badge>
+                        <Badge variant="outline">Next: {formatDate(visit.nextVisit)}</Badge>
                       )}
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">

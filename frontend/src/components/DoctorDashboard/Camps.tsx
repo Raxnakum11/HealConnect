@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Eye, Trash2, CalendarIcon, MapPin } from 'lucide-react';
+import { formatDate } from '@/lib/utils';
 
 interface Camp {
   id: string;
@@ -63,7 +64,7 @@ const Camps: React.FC<CampsProps> = ({
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <CalendarIcon className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm">{camp.date}</span>
+                  <span className="text-sm">{formatDate(camp.date)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-muted-foreground" />

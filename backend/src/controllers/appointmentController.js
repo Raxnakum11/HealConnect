@@ -461,12 +461,64 @@ const getAppointmentStats = async (req, res) => {
   }
 };
 
+// @desc    Delete appointment
+// @route   DELETE /api/appointments/:id
+// @access  Private (Doctor only)
+const deleteAppointment = async (req, res) => {
+  try {
+    console.log(`Attempting to delete appointment ${req.params.id}`);
+
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid appointment ID'
+      });
+    }
+
+    const appointment = await Appointment.findById(req.params.id);
+    if (!appointment) {
+      console.log(`Appointment ${req.params.id} not found`);
+      return res.status(404).json({
+        success: false,
+        message: 'Appointment not found'
+      });
+    }
+
+    console.log(`Found appointment for deletion:`, appointment);
+
+    // Only allow doctors to delete appointments
+    if (req.user.role !== 'doctor') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only doctors can delete appointments'
+      });
+    }
+
+    // Delete the appointment
+    await Appointment.findByIdAndDelete(req.params.id);
+    console.log(`Appointment ${req.params.id} deleted successfully`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Appointment deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete appointment error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete appointment',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getAppointments,
   getAppointment,
   createAppointment,
   updateAppointmentStatus,
   cancelAppointment,
+  deleteAppointment,
   getAvailableSlots,
   getAppointmentStats
 };

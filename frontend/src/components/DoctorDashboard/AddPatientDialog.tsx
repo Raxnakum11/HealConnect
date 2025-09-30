@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { formatDate } from '@/lib/utils';
 
 interface Camp {
   id: string;
@@ -177,7 +178,7 @@ export default function AddPatientDialog({
                   ) : (
                     activeCamps.map(camp => (
                       <SelectItem key={camp.id} value={camp.id}>
-                        {camp.title} - {camp.location} ({camp.date})
+                        {camp.title} - {camp.location} ({formatDate(camp.date)})
                       </SelectItem>
                     ))
                   )}

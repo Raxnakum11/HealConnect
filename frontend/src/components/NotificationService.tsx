@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { formatDateTime } from '@/lib/utils';
 import { MessageSquare, Send, Smartphone, Bell, Users, Activity } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -353,7 +354,7 @@ export function NotificationService({ isOpen, onClose, notificationType = 'manua
                         <Badge variant="outline">{notification.triggerType}</Badge>
                       </div>
                       <span className="text-sm text-muted-foreground">
-                        {new Date(notification.timestamp).toLocaleString()}
+                        {formatDateTime(notification.timestamp)}
                       </span>
                     </div>
                     <h4 className="font-semibold text-medical-dark mb-1">{notification.title}</h4>

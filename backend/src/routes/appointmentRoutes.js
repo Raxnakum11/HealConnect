@@ -5,6 +5,7 @@ const {
   createAppointment,
   updateAppointmentStatus,
   cancelAppointment,
+  deleteAppointment,
   getAvailableSlots,
   getAppointmentStats
 } = require('../controllers/appointmentController');
@@ -167,6 +168,17 @@ router.put(
   mongoIdValidation,
   handleValidationErrors,
   cancelAppointment
+);
+
+// @route   DELETE /api/appointments/:id
+// @desc    Delete appointment
+// @access  Private (Doctor only)
+router.delete(
+  '/:id',
+  requireDoctor,
+  mongoIdValidation,
+  handleValidationErrors,
+  deleteAppointment
 );
 
 module.exports = router;

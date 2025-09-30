@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Layout } from '@/components/Layout';
 import { useToast } from '@/hooks/use-toast';
+import { formatDate } from '@/lib/utils';
 import { NotificationService } from '@/components/NotificationService';
 import { api } from '@/lib/api';
 
@@ -245,7 +246,7 @@ export function DoctorDashboard() {
           id: appointment._id || appointment.id,
           patientName: appointment.patientName || appointment.patientId?.name || 'Unknown Patient',
           patientId: appointment.patientId?.patientId || appointment.patientId,
-          date: new Date(appointment.date).toLocaleDateString(),
+          date: formatDate(appointment.date),
           time: appointment.time,
           type: appointment.type,
           reason: appointment.reason,
@@ -442,7 +443,7 @@ export function DoctorDashboard() {
       setNotificationData({
         type: 'camp',
         title: 'New Health Camp Organized',
-        message: `Dear Patient, A new health camp "${createdCamp.title}" has been organized on ${new Date(createdCamp.date).toLocaleDateString()} at ${createdCamp.location}. Please visit our clinic for more details. - Dr. Himanshu Sonagara, Shree Hari Clinic`
+        message: `Dear Patient, A new health camp "${createdCamp.title}" has been organized on ${formatDate(createdCamp.date)} at ${createdCamp.location}. Please visit our clinic for more details. - Dr. Himanshu Sonagara, Shree Hari Clinic`
       });
       setShowNotificationService(true);
       
@@ -511,28 +512,41 @@ export function DoctorDashboard() {
     toast({ title: "Medical report added successfully!" });
   };
 
-  const handleBookingAction = async (bookingId: string, action: 'approve' | 'reject') => {
+  const handleBookingAction = async (bookingId: string, action: 'approve' | 'reject' | 'delete') => {
     try {
-      const status = action === 'approve' ? 'approved' : 'rejected';
-      await api.updateAppointmentStatus(bookingId, status);
-      
-      // Update local state
-      const updatedBookings = bookings.map(booking =>
-        booking.id === bookingId
-          ? { ...booking, status: status as 'approved' | 'rejected' }
-          : booking
-      );
-      setBookings(updatedBookings);
-      
-      toast({ 
-        title: `Booking ${action}d successfully!`,
-        description: `The patient has been notified.`
-      });
+      if (action === 'delete') {
+        await api.deleteAppointment(bookingId);
+        
+        // Remove the booking from local state
+        const updatedBookings = bookings.filter(booking => booking.id !== bookingId);
+        setBookings(updatedBookings);
+        
+        toast({ 
+          title: "Appointment deleted successfully!",
+          description: "The appointment has been permanently removed."
+        });
+      } else {
+        const status = action === 'approve' ? 'approved' : 'rejected';
+        await api.updateAppointmentStatus(bookingId, status);
+        
+        // Update local state
+        const updatedBookings = bookings.map(booking =>
+          booking.id === bookingId
+            ? { ...booking, status: status as 'approved' | 'rejected' }
+            : booking
+        );
+        setBookings(updatedBookings);
+        
+        toast({ 
+          title: `Booking ${action}d successfully!`,
+          description: `The patient has been notified.`
+        });
+      }
     } catch (error) {
-      console.error('Error updating booking status:', error);
+      console.error(`Error ${action === 'delete' ? 'deleting' : 'updating'} booking:`, error);
       toast({
         title: "Error",
-        description: `Failed to ${action} booking. Please try again.`,
+        description: `Failed to ${action === 'delete' ? 'delete' : action} booking. Please try again.`,
         variant: "destructive"
       });
     }
