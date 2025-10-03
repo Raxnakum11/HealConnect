@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Users, Building2, Tent, Pill, AlertTriangle } from 'lucide-react';
+import { formatDate } from '@/lib/utils';
 
 interface Patient {
   id: string;
@@ -147,7 +148,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
                 <div className="text-right">
                   <Badge variant="destructive" className="text-xs">
-                    {medicine.expiryDate}
+                    {formatDate(medicine.expiryDate)}
                   </Badge>
                   <p className="text-xs text-muted-foreground mt-1">{medicine.type}</p>
                 </div>

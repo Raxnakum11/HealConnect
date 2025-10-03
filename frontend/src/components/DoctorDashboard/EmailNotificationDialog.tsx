@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { formatDate } from '@/lib/utils';
 import { Mail, Send, TestTube, History, AlertCircle, CheckCircle, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
@@ -37,7 +38,7 @@ export default function EmailNotificationDialog({ isOpen, onClose, patients }: E
     title: '',
     message: '',
     doctorName: 'Dr. User', // This would come from auth context
-    date: new Date().toLocaleDateString(),
+    date: formatDate(new Date()),
     time: '',
     location: '',
     // Prescription specific
@@ -60,7 +61,7 @@ export default function EmailNotificationDialog({ isOpen, onClose, patients }: E
     title: '',
     message: '',
     doctorName: 'Dr. User',
-    date: new Date().toLocaleDateString(),
+    date: formatDate(new Date()),
   });
 
   // Test email state

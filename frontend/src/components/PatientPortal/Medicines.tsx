@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileText, AlertTriangle, CheckCircle, Calendar } from 'lucide-react';
+import { formatDate } from '@/lib/utils';
 
 interface Prescription {
   id: string;
@@ -73,7 +74,7 @@ export default function Medicines({ prescriptions }: MedicinesProps) {
             </div>
             <div>
               <p className="text-xs sm:text-sm font-medium text-gray-500">Prescribed Date</p>
-              <p className="text-sm">{prescription.prescribedDate}</p>
+              <p className="text-sm">{formatDate(prescription.prescribedDate)}</p>
             </div>
           </div>
           
@@ -89,7 +90,7 @@ export default function Medicines({ prescriptions }: MedicinesProps) {
               <Calendar className="h-4 w-4 text-green-600" />
               <div>
                 <p className="text-xs font-medium text-green-700">Next Visit</p>
-                <p className="text-sm text-green-800">{prescription.nextVisitDate}</p>
+                <p className="text-sm text-green-800">{formatDate(prescription.nextVisitDate)}</p>
               </div>
             </div>
           )}

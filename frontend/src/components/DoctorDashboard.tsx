@@ -36,6 +36,7 @@ import AddPrescriptionDialog from './DoctorDashboard/AddPrescriptionDialog';
 import PatientHistoryDialog from './DoctorDashboard/PatientHistoryDialog';
 import AddReportDialog from './DoctorDashboard/AddReportDialog';
 import EmailNotificationDialog from './DoctorDashboard/EmailNotificationDialog';
+import CampPatientsDialog from './DoctorDashboard/CampPatientsDialog';
 
 // Interfaces
 interface Patient {
@@ -122,6 +123,63 @@ export function DoctorDashboard() {
   const { user } = useAuth();
   const doctorSpecialization = user?.role === 'doctor' ? user.specialization : undefined;
   const { toast } = useToast();
+
+  // Sample data functions for offline mode
+  const getSamplePatients = () => [
+    {
+      id: 'sample-patient-1',
+      name: 'John Doe',
+      mobile: '9876543210',
+      email: 'john@example.com',
+      age: 35,
+      gender: 'Male',
+      address: '123 Main St, City',
+      medicalHistory: 'Diabetes, Hypertension',
+      lastVisit: '2025-09-15',
+      type: 'clinic' as 'clinic' | 'camp',
+      visitHistory: [],
+      prescriptions: []
+    },
+    {
+      id: 'sample-patient-2',
+      name: 'Jane Smith',
+      mobile: '9876543211',
+      email: 'jane@example.com',
+      age: 28,
+      gender: 'Female',
+      address: '456 Oak Ave, Town',
+      medicalHistory: 'Asthma',
+      lastVisit: '2025-09-20',
+      type: 'clinic' as 'clinic' | 'camp',
+      visitHistory: [],
+      prescriptions: []
+    }
+  ];
+
+  const getSampleMedicines = () => [
+    {
+      id: 'sample-med-1',
+      name: 'Paracetamol',
+      batch: 'B001',
+      quantity: 100,
+      size: '500',
+      unit: 'mg' as 'mg',
+      expiryDate: '2026-12-31',
+      priority: 'medium' as 'medium',
+      type: 'clinic' as 'clinic'
+    },
+    {
+      id: 'sample-med-2',
+      name: 'Ibuprofen',
+      batch: 'B002',
+      quantity: 50,
+      size: '200',
+      unit: 'mg' as 'mg',
+      expiryDate: '2026-06-30',
+      priority: 'high' as 'high',
+      type: 'clinic' as 'clinic'
+    }
+  ];
   
   // State management
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -140,6 +198,8 @@ export function DoctorDashboard() {
   const [showAddReportDialog, setShowAddReportDialog] = useState(false);
   const [showNotificationService, setShowNotificationService] = useState(false);
   const [showEmailNotificationDialog, setShowEmailNotificationDialog] = useState(false);
+  const [showCampPatientsDialog, setShowCampPatientsDialog] = useState(false);
+  const [selectedCampForPatients, setSelectedCampForPatients] = useState<Camp | null>(null);
   
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
@@ -186,25 +246,80 @@ export function DoctorDashboard() {
 
   const loadData = async () => {
     try {
-      // Load patients from API
-      const patientsData = await api.patients.getPatients();
-      setPatients(Array.isArray(patientsData) ? patientsData : []);
+      console.log('Loading doctor-specific data...');
+      
+      // Load patients from API with doctor-specific filtering
+      try {
+        const patientsData = await api.patients.getPatients({ doctorId: user?.id });
+        console.log('Loaded patients data:', patientsData);
+        
+        // Transform API response to match expected format
+        const transformedPatients = Array.isArray(patientsData) ? patientsData.map(patient => ({
+          id: patient._id || patient.id,
+          name: `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || patient.name,
+          mobile: patient.mobileNumber || patient.mobile,
+          email: patient.email,
+          age: patient.age,
+          gender: patient.gender,
+          address: patient.address,
+          medicalHistory: patient.medicalHistory,
+          lastVisit: patient.lastVisit || patient.createdAt,
+          nextAppointment: patient.nextAppointment,
+          type: (patient.campId ? 'camp' : 'clinic') as 'clinic' | 'camp',
+          campId: patient.campId,
+          visitHistory: patient.visitHistory || [],
+          prescriptions: patient.prescriptions || []
+        })) : [];
+        
+        setPatients(transformedPatients);
+        toast({
+          title: "Data Loaded",
+          description: `Loaded ${transformedPatients.length} patients`,
+        });
+      } catch (patientError) {
+        console.error('Error loading patients:', patientError);
+        toast({
+          title: "Patient Loading Failed",
+          description: "Using offline mode for patients",
+          variant: "destructive",
+        });
+        // Use sample data as fallback
+        setPatients(getSamplePatients());
+      }
 
       // Load medicines from API
-      const medicinesData = await api.medicines.getMedicines();
-      setMedicines(Array.isArray(medicinesData) ? medicinesData : []);
+      try {
+        const medicinesData = await api.medicines.getMedicines();
+        console.log('Loaded medicines data:', medicinesData);
+        setMedicines(Array.isArray(medicinesData) ? medicinesData : []);
+      } catch (medicineError) {
+        console.error('Error loading medicines:', medicineError);
+        setMedicines(getSampleMedicines());
+      }
 
       // Load camps from API
+      console.log('Loading camps from API...');
       const campsData = await api.camps.getCamps();
+      console.log('Raw camps data from API:', campsData);
+      
       if (Array.isArray(campsData) && campsData.length > 0) {
-        setCamps(campsData);
+        // Transform camps to ensure proper structure
+        const transformedCamps = campsData.map(camp => ({
+          ...camp,
+          id: camp.id || camp._id,
+          title: camp.title || camp.name || 'Untitled Camp',
+          contactInfo: camp.contactInfo || camp.notes || camp.organizerContact || '',
+          status: camp.status || 'planned'
+        }));
+        console.log('Transformed camps:', transformedCamps);
+        setCamps(transformedCamps);
       } else {
         // Add sample camps for initial setup
         const sampleCamps = [
           {
-            name: 'Health Camp - Village A',
+            name: 'Free Health Camp - Anand',
             date: new Date('2025-09-25'),
-            location: 'Village A Community Center',
+            location: 'Anand Community Center',
             description: 'Free health checkup and consultation for villagers',
             organizer: 'Dr. Himanshu Sonagara',
             organizerContact: '9876543210',
@@ -214,9 +329,9 @@ export function DoctorDashboard() {
             notes: 'Dr. Himanshu - 9876543210'
           },
           {
-            name: 'Eye Care Camp',
+            name: 'Eye Care Camp - Surat',
             date: new Date('2025-09-30'),
-            location: 'School Grounds',
+            location: 'Surat School Grounds',
             description: 'Eye examination and glasses distribution',
             organizer: 'Dr. Himanshu Sonagara',
             organizerContact: '9876543211',
@@ -224,6 +339,30 @@ export function DoctorDashboard() {
             type: 'camp',
             expectedPatients: 50,
             notes: 'Contact: 9876543211'
+          },
+          {
+            name: 'Health Checkup Camp - Delhi',
+            date: new Date('2025-10-08'),
+            location: 'Delhi Community Hall',
+            description: 'Comprehensive health screening and vaccination',
+            organizer: 'Dr. Himanshu Sonagara',
+            organizerContact: '9876543212',
+            time: '9:00 AM',
+            type: 'camp',
+            expectedPatients: 75,
+            notes: 'Contact: 9876543212'
+          },
+          {
+            name: 'Medical Camp - Mumbai',
+            date: new Date('2025-10-06'),
+            location: 'Mumbai Medical Center',
+            description: 'General medical consultation and treatment',
+            organizer: 'Dr. Himanshu Sonagara',
+            organizerContact: '9876543213',
+            time: '8:00 AM',
+            type: 'camp',
+            expectedPatients: 120,
+            notes: 'Contact: 9876543213'
           }
         ];
         
@@ -234,8 +373,15 @@ export function DoctorDashboard() {
           createdCamps.push(createdCamp);
         }
         
-        // Set the created camps directly
-        setCamps(createdCamps);
+        // Transform and set the created camps
+        const transformedCamps = createdCamps.map(camp => ({
+          ...camp,
+          id: camp.id || camp._id,
+          title: camp.title || camp.name || 'Untitled Camp',
+          contactInfo: camp.contactInfo || camp.notes || camp.organizerContact || '',
+          status: camp.status || 'planned'
+        }));
+        setCamps(transformedCamps);
       }
 
       // Load appointments/bookings from API
@@ -275,6 +421,38 @@ export function DoctorDashboard() {
       setBookings([]);
     }
   };
+
+  // Assign random patients to camps for demonstration
+  const assignPatientsToRandomCamps = () => {
+    if (camps.length > 0 && patients.length > 0) {
+      const updatedCamps = camps.map((camp, index) => {
+        // Assign 2-4 random patients to each camp
+        const numPatients = Math.floor(Math.random() * 3) + 2; // 2-4 patients
+        const assignedPatients = [];
+        
+        for (let i = 0; i < Math.min(numPatients, patients.length); i++) {
+          const randomPatient = patients[Math.floor(Math.random() * patients.length)];
+          if (!assignedPatients.includes(randomPatient.id)) {
+            assignedPatients.push(randomPatient.id);
+          }
+        }
+        
+        return {
+          ...camp,
+          patients: assignedPatients
+        };
+      });
+      
+      setCamps(updatedCamps);
+    }
+  };
+
+  // Call this after camps and patients are loaded
+  useEffect(() => {
+    if (camps.length > 0 && patients.length > 0 && !camps.some(camp => camp.patients && camp.patients.length > 0)) {
+      assignPatientsToRandomCamps();
+    }
+  }, [camps.length, patients.length]);
 
   // Computed values
   const expiringMedicines = medicines.filter(medicine => {
@@ -552,25 +730,182 @@ export function DoctorDashboard() {
     }
   };
 
-  const removePatient = (id: string) => {
-    const updatedPatients = patients.filter(p => p.id !== id);
-    setPatients(updatedPatients);
-    localStorage.setItem('doctor_patients', JSON.stringify(updatedPatients));
-    toast({ title: "Patient removed successfully!" });
+  const removePatient = async (id: string) => {
+    console.log('Attempting to delete patient with ID:', id);
+    
+    try {
+      // Call API to delete patient from database
+      console.log('Making API call to delete patient...');
+      const response = await api.patients.deletePatient(id);
+      console.log('API delete response:', response);
+      
+      // Update local state only after successful API call
+      const updatedPatients = patients.filter(p => p.id !== id);
+      setPatients(updatedPatients);
+      
+      // Update localStorage to reflect the changes
+      localStorage.setItem('doctor_patients', JSON.stringify(updatedPatients));
+      
+      toast({ 
+        title: "Patient removed successfully!",
+        description: "The patient has been permanently deleted from the database."
+      });
+      
+      // Reload data to ensure consistency
+      console.log('Patient deletion successful, reloading data...');
+      setTimeout(() => {
+        loadData();
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error removing patient:', error);
+      console.error('Error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Unknown error occurred';
+      
+      toast({
+        title: "Failed to delete patient",
+        description: `Error: ${errorMessage}. Check console for details.`,
+        variant: "destructive"
+      });
+      
+      // If the patient doesn't exist in the database anymore, remove it from local state anyway
+      if (error.response?.status === 404) {
+        console.log('Patient not found (404), removing from local state');
+        const updatedPatients = patients.filter(p => p.id !== id);
+        setPatients(updatedPatients);
+        localStorage.setItem('doctor_patients', JSON.stringify(updatedPatients));
+      }
+    }
   };
 
-  const removeMedicine = (id: string) => {
-    const updatedMedicines = medicines.filter(m => m.id !== id);
-    setMedicines(updatedMedicines);
-    localStorage.setItem('doctor_medicines', JSON.stringify(updatedMedicines));
-    toast({ title: "Medicine removed successfully!" });
+  const removeMedicine = async (id: string) => {
+    console.log('Attempting to delete medicine with ID:', id);
+    
+    try {
+      // Call API to delete medicine from database
+      console.log('Making API call to delete medicine...');
+      const response = await api.medicines.deleteMedicine(id);
+      console.log('API delete response:', response);
+      
+      // Update local state only after successful API call
+      const updatedMedicines = medicines.filter(m => m.id !== id);
+      setMedicines(updatedMedicines);
+      
+      // Update localStorage to reflect the changes
+      localStorage.setItem('doctor_medicines', JSON.stringify(updatedMedicines));
+      
+      toast({ 
+        title: "Medicine removed successfully!",
+        description: "The medicine has been permanently deleted from the database."
+      });
+      
+      // Reload data to ensure consistency
+      console.log('Medicine deletion successful, reloading data...');
+      setTimeout(() => {
+        loadData();
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error removing medicine:', error);
+      console.error('Error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Unknown error occurred';
+      
+      toast({
+        title: "Failed to delete medicine",
+        description: `Error: ${errorMessage}. Check console for details.`,
+        variant: "destructive"
+      });
+      
+      // If the medicine doesn't exist in the database anymore, remove it from local state anyway
+      if (error.response?.status === 404) {
+        console.log('Medicine not found (404), removing from local state');
+        const updatedMedicines = medicines.filter(m => m.id !== id);
+        setMedicines(updatedMedicines);
+        localStorage.setItem('doctor_medicines', JSON.stringify(updatedMedicines));
+      }
+    }
   };
 
-  const removeCamp = (id: string) => {
-    const updatedCamps = camps.filter(c => c.id !== id);
-    setCamps(updatedCamps);
-    localStorage.setItem('doctor_camps', JSON.stringify(updatedCamps));
-    toast({ title: "Camp removed successfully!" });
+  const handleDeleteMedicine = async (medicineId: string) => {
+    const medicine = medicines.find(m => m.id === medicineId);
+    const medicineName = medicine?.name || 'this medicine';
+    
+    const isConfirmed = window.confirm(
+      `Are you sure you want to delete "${medicineName}"?\n\nThis action cannot be undone and will permanently remove the medicine from the database.`
+    );
+    
+    if (isConfirmed) {
+      await removeMedicine(medicineId);
+    }
+  };
+
+  const removeCamp = async (id: string) => {
+    console.log('Attempting to delete camp with ID:', id);
+    
+    try {
+      // Call API to delete camp from database
+      console.log('Making API call to delete camp...');
+      const response = await api.camps.deleteCamp(id);
+      console.log('API delete response:', response);
+      
+      // Update local state only after successful API call
+      const updatedCamps = camps.filter(c => c.id !== id);
+      setCamps(updatedCamps);
+      
+      // Update localStorage to reflect the changes
+      localStorage.setItem('doctor_camps', JSON.stringify(updatedCamps));
+      
+      toast({ 
+        title: "Camp removed successfully!",
+        description: "The camp has been permanently deleted from the database."
+      });
+      
+      // Optionally reload data from server to ensure consistency
+      console.log('Camp deletion successful, reloading data...');
+      setTimeout(() => {
+        loadData();
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error removing camp:', error);
+      console.error('Error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      // Handle different error scenarios
+      const errorMessage = error.response?.data?.message || error.message || 'Unknown error occurred';
+      
+      toast({
+        title: "Failed to delete camp",
+        description: `Error: ${errorMessage}. Check console for details.`,
+        variant: "destructive"
+      });
+      
+      // If the camp doesn't exist in the database anymore, remove it from local state anyway
+      if (error.response?.status === 404) {
+        console.log('Camp not found (404), removing from local state');
+        const updatedCamps = camps.filter(c => c.id !== id);
+        setCamps(updatedCamps);
+        localStorage.setItem('doctor_camps', JSON.stringify(updatedCamps));
+      }
+    }
+  };
+
+  const viewCampPatients = (camp: Camp) => {
+    setSelectedCampForPatients(camp);
+    setShowCampPatientsDialog(true);
   };
 
   const exportExpiringMedicines = () => {
@@ -746,7 +1081,7 @@ export function DoctorDashboard() {
               setExpiryFilter={setExpiryFilter}
               filteredMedicines={filteredMedicines}
               setShowMedicineDialog={setShowMedicineDialog}
-              removeMedicine={removeMedicine}
+              removeMedicine={handleDeleteMedicine}
               exportExpiringMedicines={exportExpiringMedicines}
               importMedicines={importMedicines}
             />
@@ -757,7 +1092,7 @@ export function DoctorDashboard() {
             <Camps
               camps={camps}
               setShowCampDialog={setShowCampDialog}
-              setSelectedCamp={(camp: Camp) => setSelectedCampData(camp)}
+              viewCampPatients={viewCampPatients}
               removeCamp={removeCamp}
             />
           </TabsContent>
@@ -865,6 +1200,14 @@ export function DoctorDashboard() {
             email: patient.email || '',
             mobile: patient.mobile
           }))}
+        />
+
+        {/* Camp Patients Dialog */}
+        <CampPatientsDialog
+          isOpen={showCampPatientsDialog}
+          onClose={() => setShowCampPatientsDialog(false)}
+          camp={selectedCampForPatients}
+          allPatients={patients}
         />
       </div>
     </Layout>

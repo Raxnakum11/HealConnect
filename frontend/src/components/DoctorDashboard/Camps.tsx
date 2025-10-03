@@ -19,16 +19,26 @@ interface Camp {
 interface CampsProps {
   camps: Camp[];
   setShowCampDialog: (show: boolean) => void;
-  removeCamp: (id: string) => void;
-  setSelectedCamp: (camp: Camp) => void;
+  removeCamp: (id: string) => Promise<void>;
+  viewCampPatients: (camp: Camp) => void;
 }
 
 const Camps: React.FC<CampsProps> = ({
   camps,
   setShowCampDialog,
   removeCamp,
-  setSelectedCamp
+  viewCampPatients
 }) => {
+  const handleDeleteCamp = async (camp: Camp) => {
+    const isConfirmed = window.confirm(
+      `Are you sure you want to delete "${camp.title}"?\n\nThis action cannot be undone and will permanently remove the camp from the database.`
+    );
+    
+    if (isConfirmed) {
+      await removeCamp(camp.id);
+    }
+  };
+
   return (
     <>
       <div className="flex justify-between items-center">
@@ -51,10 +61,16 @@ const Camps: React.FC<CampsProps> = ({
                   <p className="text-sm text-muted-foreground truncate">{camp.location}</p>
                 </div>
                 <div className="flex flex-col gap-1 flex-shrink-0">
-                  <Button size="sm" variant="ghost" onClick={() => setSelectedCamp(camp)} className="h-8 w-8 p-0">
+                  <Button size="sm" variant="ghost" onClick={() => viewCampPatients(camp)} className="h-8 w-8 p-0" title="View Registered Patients">
                     <Eye className="w-4 h-4" />
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => removeCamp(camp.id)} className="h-8 w-8 p-0">
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    onClick={() => handleDeleteCamp(camp)} 
+                    className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600" 
+                    title="Delete Camp"
+                  >
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
