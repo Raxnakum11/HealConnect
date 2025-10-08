@@ -8,7 +8,8 @@ const {
   addVisit,
   getPatientStats,
   assignPatientToDoctor,
-  updatePatientEmail
+  updatePatientEmail,
+  getPatientVisitHistory
 } = require('../controllers/patientController');
 const { authenticateToken, requireDoctor } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/errorHandler');
@@ -49,6 +50,16 @@ router.get(
   mongoIdValidation,
   handleValidationErrors,
   getPatient
+);
+
+// @route   GET /api/patients/:id/visit-history
+// @desc    Get patient visit history
+// @access  Private
+router.get(
+  '/:id/visit-history',
+  mongoIdValidation,
+  handleValidationErrors,
+  getPatientVisitHistory
 );
 
 // @route   POST /api/patients

@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Eye, Trash2, CalendarIcon, MapPin } from 'lucide-react';
+import { Plus, Eye, Trash2, CalendarIcon, MapPin, Phone } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 
 interface Camp {
@@ -33,7 +33,7 @@ const Camps: React.FC<CampsProps> = ({
     const isConfirmed = window.confirm(
       `Are you sure you want to delete "${camp.title}"?\n\nThis action cannot be undone and will permanently remove the camp from the database.`
     );
-    
+
     if (isConfirmed) {
       await removeCamp(camp.id);
     }
@@ -58,17 +58,20 @@ const Camps: React.FC<CampsProps> = ({
                   <CardTitle className="text-lg font-semibold text-foreground mb-1 truncate">
                     {camp.title || 'Untitled Camp'}
                   </CardTitle>
-                  <p className="text-sm text-muted-foreground truncate">{camp.location}</p>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground truncate">{camp.location}</p>
+                  </div>
                 </div>
                 <div className="flex flex-col gap-1 flex-shrink-0">
                   <Button size="sm" variant="ghost" onClick={() => viewCampPatients(camp)} className="h-8 w-8 p-0" title="View Registered Patients">
                     <Eye className="w-4 h-4" />
                   </Button>
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    onClick={() => handleDeleteCamp(camp)} 
-                    className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600" 
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleDeleteCamp(camp)}
+                    className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
                     title="Delete Camp"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -83,14 +86,14 @@ const Camps: React.FC<CampsProps> = ({
                   <span className="text-sm">{formatDate(camp.date)}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-muted-foreground" />
+                  <Phone className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm">{camp.contactInfo}</span>
                 </div>
                 <p className="text-sm text-muted-foreground">{camp.description}</p>
                 <div className="flex justify-between items-center">
                   <Badge variant={
                     camp.status === 'completed' ? 'default' :
-                    camp.status === 'ongoing' ? 'destructive' : 'secondary'
+                      camp.status === 'ongoing' ? 'destructive' : 'secondary'
                   }>
                     {camp.status}
                   </Badge>

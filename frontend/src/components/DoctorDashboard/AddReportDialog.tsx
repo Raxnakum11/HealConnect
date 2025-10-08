@@ -10,14 +10,17 @@ interface Patient {
   id: string;
   name: string;
   mobile: string;
+  email?: string;
   age: number;
   gender: string;
   address: string;
   medicalHistory: string;
-  lastVisit: string;
+  lastVisit?: string;
   nextAppointment?: string;
   type: "clinic" | "camp";
   campId?: string;
+  visitHistory?: any[];
+  prescriptions?: any[];
 }
 
 interface AddReportDialogProps {

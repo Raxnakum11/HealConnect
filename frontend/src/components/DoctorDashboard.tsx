@@ -38,33 +38,7 @@ import AddReportDialog from './DoctorDashboard/AddReportDialog';
 import EmailNotificationDialog from './DoctorDashboard/EmailNotificationDialog';
 import CampPatientsDialog from './DoctorDashboard/CampPatientsDialog';
 
-// Interfaces
-interface Patient {
-  id: string;
-  name: string;
-  mobile: string;
-  email?: string;
-  age: number;
-  gender: string;
-  address: string;
-  medicalHistory: string;
-  lastVisit: string;
-  nextAppointment?: string;
-  prescriptions: Prescription[];
-  type: "clinic" | "camp";
-  campId?: string;
-  visitHistory: VisitRecord[];
-}
 
-interface VisitRecord {
-  id: string;
-  date: string;
-  symptoms: string;
-  diagnosis: string;
-  prescription: string;
-  nextVisit?: string;
-  notes: string;
-}
 
 interface Prescription {
   id: string;
@@ -119,13 +93,30 @@ interface Booking {
   status: 'pending' | 'approved' | 'rejected' | 'completed' | 'cancelled';
 }
 
+interface Patient {
+  id: string;
+  name: string;
+  mobile: string;
+  email?: string;
+  age: number;
+  gender: string;
+  address: string;
+  medicalHistory: string;
+  lastVisit?: string;
+  nextAppointment?: string;
+  type: 'clinic' | 'camp';
+  campId?: string;
+  visitHistory?: any[];
+  prescriptions?: Prescription[];
+}
+
 export function DoctorDashboard() {
   const { user } = useAuth();
   const doctorSpecialization = user?.role === 'doctor' ? user.specialization : undefined;
   const { toast } = useToast();
 
   // Sample data functions for offline mode
-  const getSamplePatients = () => [
+  const getSamplePatients = (): Patient[] => [
     {
       id: 'sample-patient-1',
       name: 'John Doe',
@@ -225,10 +216,7 @@ export function DoctorDashboard() {
     status: 'planned' as 'planned' | 'ongoing' | 'completed'
   });
 
-  const [newPrescription, setNewPrescription] = useState({
-    medicines: [{ name: '', dosage: '', frequency: '', duration: '', inventoryId: '', inventoryType: 'clinic' as 'clinic' | 'camp' | 'others' }],
-    instructions: '', nextVisit: ''
-  });
+
 
   const [newReport, setNewReport] = useState({
     type: '', title: '', description: '', file: null as File | null
@@ -250,37 +238,77 @@ export function DoctorDashboard() {
       
       // Load patients from API with doctor-specific filtering
       try {
+        console.log('🔥 Attempting to load patients for doctor:', user?.id);
         const patientsData = await api.patients.getPatients({ doctorId: user?.id });
-        console.log('Loaded patients data:', patientsData);
+        console.log('🔥 Raw API response for patients:', patientsData);
+        console.log('🔥 Type of patientsData:', typeof patientsData);
+        console.log('🔥 Is array?', Array.isArray(patientsData));
+        
+        // Handle different response formats from backend
+        let patientsArray = [];
+        if (Array.isArray(patientsData)) {
+          patientsArray = patientsData;
+        } else if (patientsData && patientsData.patients && Array.isArray(patientsData.patients)) {
+          patientsArray = patientsData.patients;
+        } else if (patientsData && patientsData.data && Array.isArray(patientsData.data)) {
+          patientsArray = patientsData.data;
+        } else if (patientsData && typeof patientsData === 'object') {
+          // If it's a single patient object, wrap it in array
+          patientsArray = [patientsData];
+        }
+        
+        console.log('🔥 Extracted patients array:', patientsArray);
+        console.log('🔥 Number of patients found:', patientsArray.length);
         
         // Transform API response to match expected format
-        const transformedPatients = Array.isArray(patientsData) ? patientsData.map(patient => ({
-          id: patient._id || patient.id,
-          name: `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || patient.name,
-          mobile: patient.mobileNumber || patient.mobile,
-          email: patient.email,
-          age: patient.age,
-          gender: patient.gender,
-          address: patient.address,
-          medicalHistory: patient.medicalHistory,
-          lastVisit: patient.lastVisit || patient.createdAt,
-          nextAppointment: patient.nextAppointment,
-          type: (patient.campId ? 'camp' : 'clinic') as 'clinic' | 'camp',
-          campId: patient.campId,
-          visitHistory: patient.visitHistory || [],
-          prescriptions: patient.prescriptions || []
-        })) : [];
-        
-        setPatients(transformedPatients);
-        toast({
-          title: "Data Loaded",
-          description: `Loaded ${transformedPatients.length} patients`,
+        const transformedPatients = patientsArray.map((patient, index) => {
+          console.log(`🔥 Transforming patient ${index + 1}:`, patient);
+          
+          const transformed = {
+            id: patient._id || patient.id,
+            name: patient.name || `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || 'Unknown Name',
+            mobile: patient.mobile || patient.mobileNumber || 'No mobile',
+            email: patient.email || 'No email',
+            age: patient.age || 'N/A',
+            gender: patient.gender || 'Not specified',
+            address: patient.address || 'Not provided',
+            medicalHistory: patient.medicalHistory || 'No medical history recorded',
+            lastVisit: patient.lastVisit || patient.createdAt || new Date().toISOString(),
+            nextAppointment: patient.nextAppointment,
+            type: (patient.campId ? 'camp' : 'clinic') as 'clinic' | 'camp',
+            campId: patient.campId,
+            visitHistory: patient.visitHistory || [],
+            prescriptions: patient.prescriptions || []
+          };
+          
+          console.log(`🔥 Transformed patient ${index + 1}:`, transformed);
+          return transformed;
         });
+        
+        console.log('🔥 Final transformed patients:', transformedPatients);
+        
+        if (transformedPatients.length === 0) {
+          console.log('🔥 No patients found, using sample data as fallback');
+          setPatients(getSamplePatients());
+          toast({
+            title: "No Patients Found",
+            description: "No patients found in database. Using sample data.",
+            variant: "destructive",
+          });
+        } else {
+          setPatients(transformedPatients);
+          toast({
+            title: "Real Patients Loaded Successfully! 🎉",
+            description: `Successfully loaded ${transformedPatients.length} real patients from database`,
+          });
+        }
       } catch (patientError) {
-        console.error('Error loading patients:', patientError);
+        console.error('🔥 ERROR loading patients:', patientError);
+        console.error('🔥 Error details:', patientError.message);
+        console.error('🔥 Error stack:', patientError.stack);
         toast({
           title: "Patient Loading Failed",
-          description: "Using offline mode for patients",
+          description: `Error: ${patientError.message}. Using offline mode.`,
           variant: "destructive",
         });
         // Use sample data as fallback
@@ -636,44 +664,9 @@ export function DoctorDashboard() {
     }
   };
 
-  const addPrescription = () => {
-    if (!selectedPatientHistory || newPrescription.medicines.length === 0) {
-      toast({ title: "Please select patient and add medicines", variant: "destructive" });
-      return;
-    }
-
-    const prescription: Prescription = {
-      id: `PRES${Date.now()}`,
-      patientId: selectedPatientHistory.id,
-      medicines: newPrescription.medicines.map((med, index) => ({
-        id: `MED${Date.now()}_${index}`,
-        name: med.name,
-        dosage: med.dosage,
-        frequency: med.frequency,
-        duration: med.duration,
-        inventoryId: med.inventoryId,
-        inventoryType: med.inventoryType
-      })),
-      instructions: newPrescription.instructions,
-      date: new Date().toISOString().split('T')[0],
-      nextVisit: newPrescription.nextVisit
-    };
-
-    const updatedPatients = patients.map(patient =>
-      patient.id === selectedPatientHistory.id
-        ? { ...patient, prescriptions: [...patient.prescriptions, prescription] }
-        : patient
-    );
-
-    setPatients(updatedPatients);
-    localStorage.setItem('doctor_patients', JSON.stringify(updatedPatients));
-    
-    setShowPrescriptionDialog(false);
-    setNewPrescription({
-      medicines: [{ name: '', dosage: '', frequency: '', duration: '', inventoryId: '', inventoryType: 'clinic' }],
-      instructions: '', nextVisit: ''
-    });
-    
+  const handlePrescriptionSuccess = () => {
+    // Refresh patient data if needed
+    loadData();
     toast({ title: "Prescription added successfully!" });
   };
 
@@ -1004,29 +997,26 @@ export function DoctorDashboard() {
                 <Heart className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-medical-dark">Shree Hari Clinic</h2>
-                <p className="text-primary font-semibold">Skin, Child & Homeo Care</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Amroli, Surat, Gujarat - 394210
-                </p>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Navigation Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="patients">Patients</TabsTrigger>
-            <TabsTrigger value="bookings">Bookings</TabsTrigger>
-            <TabsTrigger value="inventory">Inventory</TabsTrigger>
-            <TabsTrigger value="camps">Camps</TabsTrigger>
-            <TabsTrigger value="notifications">
-              <Bell className="w-4 h-4 mr-1" />
-              Notifications
-            </TabsTrigger>
-          </TabsList>
+    <h2 className="text-xl font-bold text-medica">
+      {/* Add any additional doctor info here if needed */}
+    </h2>
+  </div>
+</div>
+</div>
+</Card>
+{/* Tabs Section */}
+<Tabs value={activeTab} onValueChange={setActiveTab}>
+  <TabsList>
+    <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+    <TabsTrigger value="patients">Patients</TabsTrigger>
+    <TabsTrigger value="bookings">Bookings</TabsTrigger>
+    <TabsTrigger value="inventory">Inventory</TabsTrigger>
+    <TabsTrigger value="camps">Camps</TabsTrigger>
+    <TabsTrigger value="notifications">
+      <Bell className="w-4 h-4 mr-1" />
+      Notifications
+    </TabsTrigger>
+  </TabsList>
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6">
@@ -1159,10 +1149,8 @@ export function DoctorDashboard() {
         <AddPrescriptionDialog
           isOpen={showPrescriptionDialog}
           onOpenChange={setShowPrescriptionDialog}
-          selectedPatient={selectedPatientHistory}
-          newPrescription={newPrescription}
-          setNewPrescription={setNewPrescription}
-          onAddPrescription={addPrescription}
+          selectedPatient={selectedPatientHistory as any}
+          onSuccess={handlePrescriptionSuccess}
         />
 
         <PatientHistoryDialog

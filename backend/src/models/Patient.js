@@ -6,6 +6,16 @@ const visitRecordSchema = new mongoose.Schema({
     required: true,
     default: Date.now
   },
+  doctorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: [true, 'Doctor ID is required']
+  },
+  doctorName: {
+    type: String,
+    required: [true, 'Doctor name is required'],
+    trim: true
+  },
   symptoms: {
     type: String,
     required: [true, 'Symptoms are required'],
@@ -16,14 +26,35 @@ const visitRecordSchema = new mongoose.Schema({
     required: [true, 'Diagnosis is required'],
     trim: true
   },
-  prescription: {
+  prescriptionId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Prescription'
+  },
+  prescribedMedicines: [{
+    medicineId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Medicine'
+    },
+    medicineName: String,
+    dosage: String,
+    frequency: String,
+    duration: String,
+    quantityGiven: Number
+  }],
+  instructions: {
     type: String,
-    required: [true, 'Prescription is required'],
     trim: true
+  },
+  nextVisitDate: {
+    type: Date
   },
   notes: {
     type: String,
     trim: true
+  },
+  campId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Camp'
   }
 }, { _id: true });
 

@@ -23,15 +23,16 @@ interface Patient {
   id: string;
   name: string;
   mobile: string;
+  email?: string;
   age: number;
   gender: string;
   address: string;
   medicalHistory: string;
-  lastVisit: string;
+  lastVisit?: string;
   nextAppointment?: string;
   type: "clinic" | "camp";
   campId?: string;
-  visitHistory: {
+  visitHistory?: {
     id: string;
     date: string;
     symptoms: string;
@@ -39,6 +40,7 @@ interface Patient {
     prescription: string;
     notes: string;
   }[];
+  prescriptions?: any[];
 }
 
 interface PatientsProps {

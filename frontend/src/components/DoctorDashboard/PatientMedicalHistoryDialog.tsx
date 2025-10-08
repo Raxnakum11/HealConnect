@@ -15,10 +15,13 @@ interface Patient {
   gender: string;
   address: string;
   medicalHistory: string;
-  lastVisit: string;
+  lastVisit?: string;
+  nextAppointment?: string;
   bloodGroup?: string;
   type: "clinic" | "camp";
   campId?: string;
+  visitHistory?: any[];
+  prescriptions?: any[];
 }
 
 interface PatientMedicalHistoryDialogProps {
