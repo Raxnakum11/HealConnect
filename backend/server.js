@@ -25,7 +25,7 @@ if (!process.env.MONGODB_URI) {
   console.log('Setting manual fallback for environment variables');
   process.env.MONGODB_URI = 'mongodb://localhost:27017/healconnect_db';
   process.env.JWT_SECRET = 'healconnect_super_secret_jwt_key_2025';
-  process.env.PORT = '9000'; // Use port 9000 to avoid conflicts
+  process.env.PORT = '5000'; // Use port 5000 to avoid conflicts
   process.env.NODE_ENV = 'development';
   process.env.CORS_ORIGIN = 'http://localhost:8080';
   // Email configuration fallback
@@ -115,6 +115,15 @@ if (process.env.NODE_ENV === 'development') {
 } else {
   app.use(morgan('combined'));
 }
+
+// Add request logging for debugging
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+  }
+  next();
+});
 
 // Health check route
 app.get('/health', (req, res) => {

@@ -79,7 +79,7 @@ export function Layout({ children, title }: LayoutProps) {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
         {title && (
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-medical-dark">{title}</h1>

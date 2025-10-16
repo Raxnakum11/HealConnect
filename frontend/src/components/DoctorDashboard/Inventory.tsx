@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
 import { Download, Upload, Plus, Building2, Tent, Package, Trash2 } from 'lucide-react';
 
 interface Medicine {
@@ -149,7 +149,7 @@ const Inventory: React.FC<InventoryProps> = ({
                         </Badge>
                       </div>
                       <p className="text-xs"><strong>Quantity:</strong> {medicine.quantity}</p>
-                      <p className="text-xs"><strong>Expiry:</strong> {medicine.expiryDate}</p>
+                      <p className="text-xs"><strong>Expiry:</strong> {formatDate(medicine.expiryDate)}</p>
                       {isExpiring && (
                         <Badge variant="destructive" className="text-xs w-full justify-center">
                           Expiring Soon!

@@ -1,6 +1,7 @@
 const Appointment = require('../models/Appointment');
 const Patient = require('../models/Patient');
 const User = require('../models/User');
+const EmailService = require('../services/emailService');
 const mongoose = require('mongoose');
 
 // @desc    Get all appointments for a doctor or patient
@@ -304,6 +305,53 @@ const updateAppointmentStatus = async (req, res) => {
         nextAppointment: appointment.date
       });
       console.log(`Updated patient next appointment date`);
+    }
+
+    // Send email notification for approved or rejected appointments
+    if (status === 'approved' || status === 'rejected') {
+      try {
+        // Get patient and doctor details for email
+        const populatedAppointment = await Appointment.findById(appointment._id)
+          .populate('patientId', 'name email')
+          .populate('doctorId', 'name email specialization');
+        
+        const patientEmail = populatedAppointment.patientId.email;
+        
+        if (patientEmail) {
+          console.log(`Sending ${status} email notification to: ${patientEmail}`);
+          
+          // Prepare appointment data for email template
+          const appointmentData = {
+            patientName: populatedAppointment.patientName || populatedAppointment.patientId.name,
+            doctorName: populatedAppointment.doctorId.name,
+            date: populatedAppointment.date,
+            time: populatedAppointment.time,
+            timeSlot: populatedAppointment.timeSlot,
+            type: populatedAppointment.type,
+            reason: populatedAppointment.reason
+          };
+
+          // Initialize email service and send notification
+          const emailService = new EmailService();
+          const emailResult = await emailService.sendAppointmentStatusNotification(
+            patientEmail, 
+            appointmentData, 
+            status, 
+            notes
+          );
+          
+          if (emailResult.success) {
+            console.log(`✅ ${status.charAt(0).toUpperCase() + status.slice(1)} email sent successfully to ${patientEmail}`);
+          } else {
+            console.error(`❌ Failed to send ${status} email:`, emailResult.error);
+          }
+        } else {
+          console.log(`No email address found for patient: ${populatedAppointment.patientName}`);
+        }
+      } catch (emailError) {
+        console.error(`Error sending ${status} email notification:`, emailError);
+        // Don't fail the appointment update if email fails
+      }
     }
 
     res.status(200).json({

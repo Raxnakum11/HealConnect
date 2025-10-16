@@ -56,33 +56,33 @@ export default function BookAppointmentDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
         <DialogHeader>
-          <DialogTitle>Book Appointment</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-lg sm:text-xl">Book Appointment</DialogTitle>
+          <DialogDescription className="text-sm">
             Schedule an appointment with our doctors. Select a date, time, and provide any additional information.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* Left Column - Calendar */}
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             <div>
-              <Label className="text-base font-medium">Select Date</Label>
+              <Label className="text-sm sm:text-base font-medium">Select Date</Label>
               <div className="mt-2">
                 <Calendar
                   mode="single"
                   selected={selectedDate}
                   onSelect={setSelectedDate}
                   disabled={(date) => date < new Date() || date.getDay() === 0} // Disable past dates and Sundays
-                  className="rounded-md border"
+                  className="rounded-md border w-full"
                 />
               </div>
             </div>
             
             {selectedDate && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="font-medium text-blue-800 mb-2">Appointment Guidelines</h4>
-                <ul className="text-sm text-blue-700 space-y-1">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                <h4 className="font-medium text-blue-800 mb-2 text-sm sm:text-base">Appointment Guidelines</h4>
+                <ul className="text-xs sm:text-sm text-blue-700 space-y-1">
                   <li>• Please arrive 15 minutes before your scheduled time</li>
                   <li>• Bring all relevant medical documents and previous reports</li>
                   <li>• Appointments can be cancelled up to 2 hours before the scheduled time</li>
@@ -93,7 +93,7 @@ export default function BookAppointmentDialog({
           </div>
 
           {/* Right Column - Form */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <div className="space-y-2">
               <Label htmlFor="type">Appointment Type</Label>
               <Select 

@@ -1,6 +1,7 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:9000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-console.log('API_BASE_URL:', API_BASE_URL);
+console.log('🔧 API_BASE_URL:', API_BASE_URL);
+console.log('🔧 Environment Variables:', import.meta.env);
 
 // Token management
 class TokenManager {
@@ -34,8 +35,10 @@ class HttpClient {
     const url = `${API_BASE_URL}${endpoint}`;
     const token = TokenManager.getToken();
     
-    console.log('Making API request to:', url);
-    console.log('Request options:', options);
+    console.log('🚀 Making API request to:', url);
+    console.log('🚀 API_BASE_URL:', API_BASE_URL);
+    console.log('🚀 Endpoint:', endpoint);
+    console.log('🚀 Request options:', options);
     
     const config = {
       headers: {
@@ -215,8 +218,15 @@ export class AuthAPI {
 // Patients API
 export class PatientsAPI {
   static async getPatients(params = {}) {
+    console.log('🔥 PatientsAPI.getPatients called with params:', params);
     const response = await HttpClient.get('/patients', params);
-    return response.data?.patients || response.data || response;
+    console.log('🔥 PatientsAPI.getPatients raw response:', response);
+    console.log('🔥 Response structure - data:', response.data);
+    console.log('🔥 Response structure - patients:', response.data?.patients);
+    
+    const result = response.data?.patients || response.data || response;
+    console.log('🔥 PatientsAPI.getPatients final result:', result);
+    return result;
   }
 
   static async getPatient(id) {
@@ -256,6 +266,11 @@ export class PatientsAPI {
 
   static async updatePatientEmail(patientId, email) {
     const response = await HttpClient.put(`/patients/${patientId}/email`, { email });
+    return response.data || response;
+  }
+
+  static async getPatientVisitHistory(patientId) {
+    const response = await HttpClient.get(`/patients/${patientId}/visit-history`);
     return response.data || response;
   }
 }
@@ -300,6 +315,29 @@ export class MedicinesAPI {
   static async getExpiringMedicines(days = 30) {
     const response = await HttpClient.get('/medicines/expiring', { days });
     return response.data || response;
+  }
+
+  static async importMedicines(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const token = TokenManager.getToken();
+    const url = `${API_BASE_URL}/medicines/import`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Import failed');
+    }
+    
+    return await response.json();
   }
 }
 
@@ -384,10 +422,14 @@ export class PrescriptionsAPI {
   static async getPrescriptionStats() {
     return HttpClient.get('/prescriptions/stats');
   }
+
+  static async getMyPrescriptions() {
+    return HttpClient.get('/prescriptions/my-prescriptions');
+  }
 }
 
 // Email Notifications API
-class NotificationsAPI {
+export class NotificationsAPI {
   static async sendEmailNotification(patientId, type, data) {
     return HttpClient.post('/notifications/email', {
       patientId,
@@ -416,7 +458,7 @@ class NotificationsAPI {
 }
 
 // Appointments API
-class AppointmentsAPI {
+export class AppointmentsAPI {
   static async getAppointments(params = {}) {
     return HttpClient.get('/appointments', params);
   }

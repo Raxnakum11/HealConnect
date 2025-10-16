@@ -295,37 +295,6 @@ export function LoginSignupDialog({ open, onOpenChange }: LoginSignupDialogProps
                 {isLoading ? 'Signing In...' : `Sign In as ${selectedRole === 'patient' ? 'Patient' : 'Doctor'}`}
               </Button>
             </form>
-
-            {/* Demo Credentials */}
-            <div className="border-t pt-4">
-              <p className="text-xs text-muted-foreground text-center mb-3">Try Demo Credentials</p>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setMobile('9876543210');
-                    setSelectedRole('patient');
-                  }}
-                  className="text-xs"
-                >
-                  Demo Patient
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setMobile('9999999999');
-                    setSelectedRole('doctor');
-                  }}
-                  className="text-xs"
-                >
-                  Demo Doctor
-                </Button>
-              </div>
-            </div>
           </TabsContent>
 
           {/* Signup Tab */}
@@ -431,45 +400,6 @@ export function LoginSignupDialog({ open, onOpenChange }: LoginSignupDialogProps
                 {isLoading ? 'Creating Account...' : `Create ${selectedRole === 'patient' ? 'Patient' : 'Doctor'} Account`}
               </Button>
             </form>
-
-            {/* Demo Credentials */}
-            <div className="border-t pt-4">
-              <p className="text-xs text-muted-foreground text-center mb-3">Try Demo Credentials</p>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setMobile('9876543210');
-                    setSelectedRole('patient');
-                    setName('Demo Patient');
-                    setEmail('patient@healconnect.demo');
-                    setPassword('demo123');
-                    setConfirmPassword('demo123');
-                  }}
-                  className="text-xs"
-                >
-                  Demo Patient
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setMobile('9999999999');
-                    setSelectedRole('doctor');
-                    setName('Demo Doctor');
-                    setEmail('doctor@healconnect.demo');
-                    setPassword('demo123');
-                    setConfirmPassword('demo123');
-                  }}
-                  className="text-xs"
-                >
-                  Demo Doctor
-                </Button>
-              </div>
-            </div>
           </TabsContent>
         </Tabs>
       </DialogContent>

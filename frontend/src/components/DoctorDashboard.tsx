@@ -27,6 +27,7 @@ import BookingComponent from './DoctorDashboard/Booking';
 import Inventory from './DoctorDashboard/Inventory';
 import Camps from './DoctorDashboard/Camps';
 import Notification from './DoctorDashboard/Notification';
+import ImportMedicinesDialog from './DoctorDashboard/ImportMedicinesDialog';
 
 // Dialog Components
 import AddPatientDialog from './DoctorDashboard/AddPatientDialog';
@@ -36,34 +37,9 @@ import AddPrescriptionDialog from './DoctorDashboard/AddPrescriptionDialog';
 import PatientHistoryDialog from './DoctorDashboard/PatientHistoryDialog';
 import AddReportDialog from './DoctorDashboard/AddReportDialog';
 import EmailNotificationDialog from './DoctorDashboard/EmailNotificationDialog';
+import CampPatientsDialog from './DoctorDashboard/CampPatientsDialog';
 
-// Interfaces
-interface Patient {
-  id: string;
-  name: string;
-  mobile: string;
-  email?: string;
-  age: number;
-  gender: string;
-  address: string;
-  medicalHistory: string;
-  lastVisit: string;
-  nextAppointment?: string;
-  prescriptions: Prescription[];
-  type: "clinic" | "camp";
-  campId?: string;
-  visitHistory: VisitRecord[];
-}
 
-interface VisitRecord {
-  id: string;
-  date: string;
-  symptoms: string;
-  diagnosis: string;
-  prescription: string;
-  nextVisit?: string;
-  notes: string;
-}
 
 interface Prescription {
   id: string;
@@ -118,10 +94,84 @@ interface Booking {
   status: 'pending' | 'approved' | 'rejected' | 'completed' | 'cancelled';
 }
 
+interface Patient {
+  id: string;
+  name: string;
+  mobile: string;
+  email?: string;
+  age: number;
+  gender: string;
+  address: string;
+  medicalHistory: string;
+  lastVisit?: string;
+  nextAppointment?: string;
+  type: 'clinic' | 'camp';
+  campId?: string;
+  visitHistory?: any[];
+  prescriptions?: Prescription[];
+}
+
 export function DoctorDashboard() {
   const { user } = useAuth();
   const doctorSpecialization = user?.role === 'doctor' ? user.specialization : undefined;
   const { toast } = useToast();
+
+  // Sample data functions for offline mode
+  const getSamplePatients = (): Patient[] => [
+    {
+      id: 'sample-patient-1',
+      name: 'John Doe',
+      mobile: '9876543210',
+      email: 'john@example.com',
+      age: 35,
+      gender: 'Male',
+      address: '123 Main St, City',
+      medicalHistory: 'Diabetes, Hypertension',
+      lastVisit: '2025-09-15',
+      type: 'clinic' as 'clinic' | 'camp',
+      visitHistory: [],
+      prescriptions: []
+    },
+    {
+      id: 'sample-patient-2',
+      name: 'Jane Smith',
+      mobile: '9876543211',
+      email: 'jane@example.com',
+      age: 28,
+      gender: 'Female',
+      address: '456 Oak Ave, Town',
+      medicalHistory: 'Asthma',
+      lastVisit: '2025-09-20',
+      type: 'clinic' as 'clinic' | 'camp',
+      visitHistory: [],
+      prescriptions: []
+    }
+  ];
+
+  const getSampleMedicines = () => [
+    {
+      id: 'sample-med-1',
+      name: 'Paracetamol',
+      batch: 'B001',
+      quantity: 100,
+      size: '500',
+      unit: 'mg' as 'mg',
+      expiryDate: '2026-12-31',
+      priority: 'medium' as 'medium',
+      type: 'clinic' as 'clinic'
+    },
+    {
+      id: 'sample-med-2',
+      name: 'Ibuprofen',
+      batch: 'B002',
+      quantity: 50,
+      size: '200',
+      unit: 'mg' as 'mg',
+      expiryDate: '2026-06-30',
+      priority: 'high' as 'high',
+      type: 'clinic' as 'clinic'
+    }
+  ];
   
   // State management
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -140,6 +190,9 @@ export function DoctorDashboard() {
   const [showAddReportDialog, setShowAddReportDialog] = useState(false);
   const [showNotificationService, setShowNotificationService] = useState(false);
   const [showEmailNotificationDialog, setShowEmailNotificationDialog] = useState(false);
+  const [showCampPatientsDialog, setShowCampPatientsDialog] = useState(false);
+  const [selectedCampForPatients, setSelectedCampForPatients] = useState<Camp | null>(null);
+  const [showImportMedicinesDialog, setShowImportMedicinesDialog] = useState(false);
   
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
@@ -165,10 +218,7 @@ export function DoctorDashboard() {
     status: 'planned' as 'planned' | 'ongoing' | 'completed'
   });
 
-  const [newPrescription, setNewPrescription] = useState({
-    medicines: [{ name: '', dosage: '', frequency: '', duration: '', inventoryId: '', inventoryType: 'clinic' as 'clinic' | 'camp' | 'others' }],
-    instructions: '', nextVisit: ''
-  });
+
 
   const [newReport, setNewReport] = useState({
     type: '', title: '', description: '', file: null as File | null
@@ -186,25 +236,120 @@ export function DoctorDashboard() {
 
   const loadData = async () => {
     try {
-      // Load patients from API
-      const patientsData = await api.patients.getPatients();
-      setPatients(Array.isArray(patientsData) ? patientsData : []);
+      console.log('Loading doctor-specific data...');
+      
+      // Load patients from API with doctor-specific filtering
+      try {
+        console.log('🔥 Attempting to load patients for doctor:', user?.id);
+        const patientsData = await api.patients.getPatients({ doctorId: user?.id });
+        console.log('🔥 Raw API response for patients:', patientsData);
+        console.log('🔥 Type of patientsData:', typeof patientsData);
+        console.log('🔥 Is array?', Array.isArray(patientsData));
+        
+        // Handle different response formats from backend
+        let patientsArray = [];
+        if (Array.isArray(patientsData)) {
+          patientsArray = patientsData;
+        } else if (patientsData && patientsData.patients && Array.isArray(patientsData.patients)) {
+          patientsArray = patientsData.patients;
+        } else if (patientsData && patientsData.data && Array.isArray(patientsData.data)) {
+          patientsArray = patientsData.data;
+        } else if (patientsData && typeof patientsData === 'object') {
+          // If it's a single patient object, wrap it in array
+          patientsArray = [patientsData];
+        }
+        
+        console.log('🔥 Extracted patients array:', patientsArray);
+        console.log('🔥 Number of patients found:', patientsArray.length);
+        
+        // Transform API response to match expected format
+        const transformedPatients = patientsArray.map((patient, index) => {
+          console.log(`🔥 Transforming patient ${index + 1}:`, patient);
+          
+          const transformed = {
+            id: patient._id || patient.id,
+            name: patient.name || `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || 'Unknown Name',
+            mobile: patient.mobile || patient.mobileNumber || 'No mobile',
+            email: patient.email || 'No email',
+            age: patient.age || 'N/A',
+            gender: patient.gender || 'Not specified',
+            address: patient.address || 'Not provided',
+            medicalHistory: patient.medicalHistory || 'No medical history recorded',
+            lastVisit: patient.lastVisit || patient.createdAt || new Date().toISOString(),
+            nextAppointment: patient.nextAppointment,
+            type: (patient.campId ? 'camp' : 'clinic') as 'clinic' | 'camp',
+            campId: patient.campId,
+            visitHistory: patient.visitHistory || [],
+            prescriptions: patient.prescriptions || []
+          };
+          
+          console.log(`🔥 Transformed patient ${index + 1}:`, transformed);
+          return transformed;
+        });
+        
+        console.log('🔥 Final transformed patients:', transformedPatients);
+        
+        if (transformedPatients.length === 0) {
+          console.log('🔥 No patients found, using sample data as fallback');
+          setPatients(getSamplePatients());
+          toast({
+            title: "No Patients Found",
+            description: "No patients found in database. Using sample data.",
+            variant: "destructive",
+          });
+        } else {
+          setPatients(transformedPatients);
+          toast({
+            title: "Real Patients Loaded Successfully! 🎉",
+            description: `Successfully loaded ${transformedPatients.length} real patients from database`,
+          });
+        }
+      } catch (patientError) {
+        console.error('🔥 ERROR loading patients:', patientError);
+        console.error('🔥 Error details:', patientError.message);
+        console.error('🔥 Error stack:', patientError.stack);
+        toast({
+          title: "Patient Loading Failed",
+          description: `Error: ${patientError.message}. Using offline mode.`,
+          variant: "destructive",
+        });
+        // Use sample data as fallback
+        setPatients(getSamplePatients());
+      }
 
       // Load medicines from API
-      const medicinesData = await api.medicines.getMedicines();
-      setMedicines(Array.isArray(medicinesData) ? medicinesData : []);
+      try {
+        const medicinesData = await api.medicines.getMedicines();
+        console.log('Loaded medicines data:', medicinesData);
+        setMedicines(Array.isArray(medicinesData) ? medicinesData : []);
+      } catch (medicineError) {
+        console.error('Error loading medicines:', medicineError);
+        setMedicines(getSampleMedicines());
+      }
 
       // Load camps from API
+      console.log('Loading camps from API...');
       const campsData = await api.camps.getCamps();
+      console.log('Raw camps data from API:', campsData);
+      
       if (Array.isArray(campsData) && campsData.length > 0) {
-        setCamps(campsData);
+        // Transform camps to ensure proper structure
+        const transformedCamps = campsData.map(camp => ({
+          ...camp,
+          id: camp.id || camp._id,
+          title: camp.title || camp.name || 'Untitled Camp',
+          contactInfo: camp.contactInfo || camp.notes || camp.organizerContact || '',
+          status: camp.status || 'planned'
+        }));
+        console.log('Transformed camps:', transformedCamps);
+        setCamps(transformedCamps);
       } else {
         // Add sample camps for initial setup
         const sampleCamps = [
           {
-            name: 'Health Camp - Village A',
+            name: 'Free Health Camp - Anand',
             date: new Date('2025-09-25'),
-            location: 'Village A Community Center',
+            location: 'Anand Community Center',
             description: 'Free health checkup and consultation for villagers',
             organizer: 'Dr. Himanshu Sonagara',
             organizerContact: '9876543210',
@@ -214,9 +359,9 @@ export function DoctorDashboard() {
             notes: 'Dr. Himanshu - 9876543210'
           },
           {
-            name: 'Eye Care Camp',
+            name: 'Eye Care Camp - Surat',
             date: new Date('2025-09-30'),
-            location: 'School Grounds',
+            location: 'Surat School Grounds',
             description: 'Eye examination and glasses distribution',
             organizer: 'Dr. Himanshu Sonagara',
             organizerContact: '9876543211',
@@ -224,6 +369,30 @@ export function DoctorDashboard() {
             type: 'camp',
             expectedPatients: 50,
             notes: 'Contact: 9876543211'
+          },
+          {
+            name: 'Health Checkup Camp - Delhi',
+            date: new Date('2025-10-08'),
+            location: 'Delhi Community Hall',
+            description: 'Comprehensive health screening and vaccination',
+            organizer: 'Dr. Himanshu Sonagara',
+            organizerContact: '9876543212',
+            time: '9:00 AM',
+            type: 'camp',
+            expectedPatients: 75,
+            notes: 'Contact: 9876543212'
+          },
+          {
+            name: 'Medical Camp - Mumbai',
+            date: new Date('2025-10-06'),
+            location: 'Mumbai Medical Center',
+            description: 'General medical consultation and treatment',
+            organizer: 'Dr. Himanshu Sonagara',
+            organizerContact: '9876543213',
+            time: '8:00 AM',
+            type: 'camp',
+            expectedPatients: 120,
+            notes: 'Contact: 9876543213'
           }
         ];
         
@@ -234,8 +403,15 @@ export function DoctorDashboard() {
           createdCamps.push(createdCamp);
         }
         
-        // Set the created camps directly
-        setCamps(createdCamps);
+        // Transform and set the created camps
+        const transformedCamps = createdCamps.map(camp => ({
+          ...camp,
+          id: camp.id || camp._id,
+          title: camp.title || camp.name || 'Untitled Camp',
+          contactInfo: camp.contactInfo || camp.notes || camp.organizerContact || '',
+          status: camp.status || 'planned'
+        }));
+        setCamps(transformedCamps);
       }
 
       // Load appointments/bookings from API
@@ -275,6 +451,38 @@ export function DoctorDashboard() {
       setBookings([]);
     }
   };
+
+  // Assign random patients to camps for demonstration
+  const assignPatientsToRandomCamps = () => {
+    if (camps.length > 0 && patients.length > 0) {
+      const updatedCamps = camps.map((camp, index) => {
+        // Assign 2-4 random patients to each camp
+        const numPatients = Math.floor(Math.random() * 3) + 2; // 2-4 patients
+        const assignedPatients = [];
+        
+        for (let i = 0; i < Math.min(numPatients, patients.length); i++) {
+          const randomPatient = patients[Math.floor(Math.random() * patients.length)];
+          if (!assignedPatients.includes(randomPatient.id)) {
+            assignedPatients.push(randomPatient.id);
+          }
+        }
+        
+        return {
+          ...camp,
+          patients: assignedPatients
+        };
+      });
+      
+      setCamps(updatedCamps);
+    }
+  };
+
+  // Call this after camps and patients are loaded
+  useEffect(() => {
+    if (camps.length > 0 && patients.length > 0 && !camps.some(camp => camp.patients && camp.patients.length > 0)) {
+      assignPatientsToRandomCamps();
+    }
+  }, [camps.length, patients.length]);
 
   // Computed values
   const expiringMedicines = medicines.filter(medicine => {
@@ -333,6 +541,7 @@ export function DoctorDashboard() {
       const patientData = {
         name: newPatient.name,
         mobile: newPatient.mobile,
+        email: newPatient.email || undefined, // Include email if provided
         age: parseInt(newPatient.age),
         gender: newPatient.gender,
         address: newPatient.address,
@@ -458,44 +667,9 @@ export function DoctorDashboard() {
     }
   };
 
-  const addPrescription = () => {
-    if (!selectedPatientHistory || newPrescription.medicines.length === 0) {
-      toast({ title: "Please select patient and add medicines", variant: "destructive" });
-      return;
-    }
-
-    const prescription: Prescription = {
-      id: `PRES${Date.now()}`,
-      patientId: selectedPatientHistory.id,
-      medicines: newPrescription.medicines.map((med, index) => ({
-        id: `MED${Date.now()}_${index}`,
-        name: med.name,
-        dosage: med.dosage,
-        frequency: med.frequency,
-        duration: med.duration,
-        inventoryId: med.inventoryId,
-        inventoryType: med.inventoryType
-      })),
-      instructions: newPrescription.instructions,
-      date: new Date().toISOString().split('T')[0],
-      nextVisit: newPrescription.nextVisit
-    };
-
-    const updatedPatients = patients.map(patient =>
-      patient.id === selectedPatientHistory.id
-        ? { ...patient, prescriptions: [...patient.prescriptions, prescription] }
-        : patient
-    );
-
-    setPatients(updatedPatients);
-    localStorage.setItem('doctor_patients', JSON.stringify(updatedPatients));
-    
-    setShowPrescriptionDialog(false);
-    setNewPrescription({
-      medicines: [{ name: '', dosage: '', frequency: '', duration: '', inventoryId: '', inventoryType: 'clinic' }],
-      instructions: '', nextVisit: ''
-    });
-    
+  const handlePrescriptionSuccess = () => {
+    // Refresh patient data if needed
+    loadData();
     toast({ title: "Prescription added successfully!" });
   };
 
@@ -552,25 +726,182 @@ export function DoctorDashboard() {
     }
   };
 
-  const removePatient = (id: string) => {
-    const updatedPatients = patients.filter(p => p.id !== id);
-    setPatients(updatedPatients);
-    localStorage.setItem('doctor_patients', JSON.stringify(updatedPatients));
-    toast({ title: "Patient removed successfully!" });
+  const removePatient = async (id: string) => {
+    console.log('Attempting to delete patient with ID:', id);
+    
+    try {
+      // Call API to delete patient from database
+      console.log('Making API call to delete patient...');
+      const response = await api.patients.deletePatient(id);
+      console.log('API delete response:', response);
+      
+      // Update local state only after successful API call
+      const updatedPatients = patients.filter(p => p.id !== id);
+      setPatients(updatedPatients);
+      
+      // Update localStorage to reflect the changes
+      localStorage.setItem('doctor_patients', JSON.stringify(updatedPatients));
+      
+      toast({ 
+        title: "Patient removed successfully!",
+        description: "The patient has been permanently deleted from the database."
+      });
+      
+      // Reload data to ensure consistency
+      console.log('Patient deletion successful, reloading data...');
+      setTimeout(() => {
+        loadData();
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error removing patient:', error);
+      console.error('Error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Unknown error occurred';
+      
+      toast({
+        title: "Failed to delete patient",
+        description: `Error: ${errorMessage}. Check console for details.`,
+        variant: "destructive"
+      });
+      
+      // If the patient doesn't exist in the database anymore, remove it from local state anyway
+      if (error.response?.status === 404) {
+        console.log('Patient not found (404), removing from local state');
+        const updatedPatients = patients.filter(p => p.id !== id);
+        setPatients(updatedPatients);
+        localStorage.setItem('doctor_patients', JSON.stringify(updatedPatients));
+      }
+    }
   };
 
-  const removeMedicine = (id: string) => {
-    const updatedMedicines = medicines.filter(m => m.id !== id);
-    setMedicines(updatedMedicines);
-    localStorage.setItem('doctor_medicines', JSON.stringify(updatedMedicines));
-    toast({ title: "Medicine removed successfully!" });
+  const removeMedicine = async (id: string) => {
+    console.log('Attempting to delete medicine with ID:', id);
+    
+    try {
+      // Call API to delete medicine from database
+      console.log('Making API call to delete medicine...');
+      const response = await api.medicines.deleteMedicine(id);
+      console.log('API delete response:', response);
+      
+      // Update local state only after successful API call
+      const updatedMedicines = medicines.filter(m => m.id !== id);
+      setMedicines(updatedMedicines);
+      
+      // Update localStorage to reflect the changes
+      localStorage.setItem('doctor_medicines', JSON.stringify(updatedMedicines));
+      
+      toast({ 
+        title: "Medicine removed successfully!",
+        description: "The medicine has been permanently deleted from the database."
+      });
+      
+      // Reload data to ensure consistency
+      console.log('Medicine deletion successful, reloading data...');
+      setTimeout(() => {
+        loadData();
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error removing medicine:', error);
+      console.error('Error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Unknown error occurred';
+      
+      toast({
+        title: "Failed to delete medicine",
+        description: `Error: ${errorMessage}. Check console for details.`,
+        variant: "destructive"
+      });
+      
+      // If the medicine doesn't exist in the database anymore, remove it from local state anyway
+      if (error.response?.status === 404) {
+        console.log('Medicine not found (404), removing from local state');
+        const updatedMedicines = medicines.filter(m => m.id !== id);
+        setMedicines(updatedMedicines);
+        localStorage.setItem('doctor_medicines', JSON.stringify(updatedMedicines));
+      }
+    }
   };
 
-  const removeCamp = (id: string) => {
-    const updatedCamps = camps.filter(c => c.id !== id);
-    setCamps(updatedCamps);
-    localStorage.setItem('doctor_camps', JSON.stringify(updatedCamps));
-    toast({ title: "Camp removed successfully!" });
+  const handleDeleteMedicine = async (medicineId: string) => {
+    const medicine = medicines.find(m => m.id === medicineId);
+    const medicineName = medicine?.name || 'this medicine';
+    
+    const isConfirmed = window.confirm(
+      `Are you sure you want to delete "${medicineName}"?\n\nThis action cannot be undone and will permanently remove the medicine from the database.`
+    );
+    
+    if (isConfirmed) {
+      await removeMedicine(medicineId);
+    }
+  };
+
+  const removeCamp = async (id: string) => {
+    console.log('Attempting to delete camp with ID:', id);
+    
+    try {
+      // Call API to delete camp from database
+      console.log('Making API call to delete camp...');
+      const response = await api.camps.deleteCamp(id);
+      console.log('API delete response:', response);
+      
+      // Update local state only after successful API call
+      const updatedCamps = camps.filter(c => c.id !== id);
+      setCamps(updatedCamps);
+      
+      // Update localStorage to reflect the changes
+      localStorage.setItem('doctor_camps', JSON.stringify(updatedCamps));
+      
+      toast({ 
+        title: "Camp removed successfully!",
+        description: "The camp has been permanently deleted from the database."
+      });
+      
+      // Optionally reload data from server to ensure consistency
+      console.log('Camp deletion successful, reloading data...');
+      setTimeout(() => {
+        loadData();
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error removing camp:', error);
+      console.error('Error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      // Handle different error scenarios
+      const errorMessage = error.response?.data?.message || error.message || 'Unknown error occurred';
+      
+      toast({
+        title: "Failed to delete camp",
+        description: `Error: ${errorMessage}. Check console for details.`,
+        variant: "destructive"
+      });
+      
+      // If the camp doesn't exist in the database anymore, remove it from local state anyway
+      if (error.response?.status === 404) {
+        console.log('Camp not found (404), removing from local state');
+        const updatedCamps = camps.filter(c => c.id !== id);
+        setCamps(updatedCamps);
+        localStorage.setItem('doctor_camps', JSON.stringify(updatedCamps));
+      }
+    }
+  };
+
+  const viewCampPatients = (camp: Camp) => {
+    setSelectedCampForPatients(camp);
+    setShowCampPatientsDialog(true);
   };
 
   const exportExpiringMedicines = () => {
@@ -604,39 +935,27 @@ export function DoctorDashboard() {
   };
 
   const importMedicines = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.csv,.json';
-    input.onchange = (e: Event) => {
-      const target = e.target as HTMLInputElement;
-      const file = target.files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (event: ProgressEvent<FileReader>) => {
-          try {
-            const content = event.target?.result as string;
-            let importedMedicines = [];
-            
-            if (file.type === 'application/json') {
-              importedMedicines = JSON.parse(content);
-            } else {
-              // CSV parsing logic would go here
-              toast({ title: "CSV import feature coming soon!", variant: "default" });
-              return;
-            }
-            
-            const updatedMedicines = [...medicines, ...importedMedicines];
-            setMedicines(updatedMedicines);
-            localStorage.setItem('doctor_medicines', JSON.stringify(updatedMedicines));
-            toast({ title: `${importedMedicines.length} medicines imported successfully!` });
-          } catch (error) {
-            toast({ title: "Error importing medicines", variant: "destructive" });
-          }
-        };
-        reader.readAsText(file);
-      }
-    };
-    input.click();
+    setShowImportMedicinesDialog(true);
+  };
+
+  const fetchMedicines = async () => {
+    try {
+      const medicinesData = await api.medicines.getMedicines();
+      console.log('Loaded medicines data:', medicinesData);
+      setMedicines(Array.isArray(medicinesData) ? medicinesData : []);
+    } catch (medicineError) {
+      console.error('Error loading medicines:', medicineError);
+      toast({
+        title: "Error loading medicines",
+        description: "Failed to load medicines from server",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleImportSuccess = async () => {
+    // Refresh medicines after successful import
+    await fetchMedicines();
   };
 
   return (
@@ -669,29 +988,41 @@ export function DoctorDashboard() {
                 <Heart className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-medical-dark">Shree Hari Clinic</h2>
-                <p className="text-primary font-semibold">Skin, Child & Homeo Care</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Amroli, Surat, Gujarat - 394210
-                </p>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Navigation Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="patients">Patients</TabsTrigger>
-            <TabsTrigger value="bookings">Bookings</TabsTrigger>
-            <TabsTrigger value="inventory">Inventory</TabsTrigger>
-            <TabsTrigger value="camps">Camps</TabsTrigger>
-            <TabsTrigger value="notifications">
-              <Bell className="w-4 h-4 mr-1" />
-              Notifications
-            </TabsTrigger>
-          </TabsList>
+    <h2 className="text-xl font-bold text-medica">
+      {/* Add any additional doctor info here if needed */}
+    </h2>
+  </div>
+</div>
+</div>
+</Card>
+{/* Tabs Section - Mobile Responsive */}
+<Tabs value={activeTab} onValueChange={setActiveTab}>
+  <div className="sticky top-0 bg-background/80 backdrop-blur-sm z-10 pb-2">
+    <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 h-auto p-1 gap-1">
+      <TabsTrigger value="dashboard" className="text-xs sm:text-sm px-2 py-2">
+        <span className="hidden sm:inline">Dashboard</span>
+        <span className="sm:hidden">Home</span>
+      </TabsTrigger>
+      <TabsTrigger value="patients" className="text-xs sm:text-sm px-2 py-2">
+        Patients
+      </TabsTrigger>
+      <TabsTrigger value="bookings" className="text-xs sm:text-sm px-2 py-2">
+        Bookings
+      </TabsTrigger>
+      <TabsTrigger value="inventory" className="text-xs sm:text-sm px-2 py-2">
+        <span className="hidden sm:inline">Inventory</span>
+        <span className="sm:hidden">Meds</span>
+      </TabsTrigger>
+      <TabsTrigger value="camps" className="text-xs sm:text-sm px-2 py-2">
+        Camps
+      </TabsTrigger>
+      <TabsTrigger value="notifications" className="text-xs sm:text-sm px-2 py-2 col-span-2 sm:col-span-1">
+        <Bell className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+        <span className="hidden sm:inline">Notifications</span>
+        <span className="sm:hidden">Alerts</span>
+      </TabsTrigger>
+    </TabsList>
+  </div>
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6">
@@ -746,7 +1077,7 @@ export function DoctorDashboard() {
               setExpiryFilter={setExpiryFilter}
               filteredMedicines={filteredMedicines}
               setShowMedicineDialog={setShowMedicineDialog}
-              removeMedicine={removeMedicine}
+              removeMedicine={handleDeleteMedicine}
               exportExpiringMedicines={exportExpiringMedicines}
               importMedicines={importMedicines}
             />
@@ -757,7 +1088,7 @@ export function DoctorDashboard() {
             <Camps
               camps={camps}
               setShowCampDialog={setShowCampDialog}
-              setSelectedCamp={(camp: Camp) => setSelectedCampData(camp)}
+              viewCampPatients={viewCampPatients}
               removeCamp={removeCamp}
             />
           </TabsContent>
@@ -824,10 +1155,8 @@ export function DoctorDashboard() {
         <AddPrescriptionDialog
           isOpen={showPrescriptionDialog}
           onOpenChange={setShowPrescriptionDialog}
-          selectedPatient={selectedPatientHistory}
-          newPrescription={newPrescription}
-          setNewPrescription={setNewPrescription}
-          onAddPrescription={addPrescription}
+          selectedPatient={selectedPatientHistory as any}
+          onSuccess={handlePrescriptionSuccess}
         />
 
         <PatientHistoryDialog
@@ -865,6 +1194,21 @@ export function DoctorDashboard() {
             email: patient.email || '',
             mobile: patient.mobile
           }))}
+        />
+
+        {/* Camp Patients Dialog */}
+        <CampPatientsDialog
+          isOpen={showCampPatientsDialog}
+          onClose={() => setShowCampPatientsDialog(false)}
+          camp={selectedCampForPatients}
+          allPatients={patients}
+        />
+
+        {/* Import Medicines Dialog */}
+        <ImportMedicinesDialog
+          isOpen={showImportMedicinesDialog}
+          onClose={() => setShowImportMedicinesDialog(false)}
+          onImportSuccess={handleImportSuccess}
         />
       </div>
     </Layout>

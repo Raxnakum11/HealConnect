@@ -470,6 +470,56 @@ const updatePatientEmail = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Get patient visit history
+// @route   GET /api/patients/:id/visit-history
+// @access  Private
+const getPatientVisitHistory = asyncHandler(async (req, res) => {
+  const patient = await Patient.findById(req.params.id)
+    .populate('visitHistory.doctorId', 'firstName lastName specialization')
+    .populate('visitHistory.prescribedMedicines.medicineId', 'name size unit')
+    .populate('visitHistory.campId', 'name location date');
+  
+  if (!patient) {
+    return res.status(404).json({
+      success: false,
+      message: 'Patient not found'
+    });
+  }
+  
+  // Check if user has access to this patient
+  if (req.user.role === 'doctor' && patient.doctorId && patient.doctorId.toString() !== req.user.id) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied'
+    });
+  }
+  
+  if (req.user.role === 'patient' && patient.userId && patient.userId.toString() !== req.user.id) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied'
+    });
+  }
+  
+  // Sort visit history by date (newest first)
+  const sortedVisitHistory = patient.visitHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+  
+  res.status(200).json({
+    success: true,
+    data: { 
+      visitHistory: sortedVisitHistory,
+      patientInfo: {
+        id: patient._id,
+        name: patient.name,
+        age: patient.age,
+        gender: patient.gender,
+        mobile: patient.mobile,
+        type: patient.type
+      }
+    }
+  });
+});
+
 module.exports = {
   getPatients,
   getPatient,
@@ -479,5 +529,6 @@ module.exports = {
   addVisit,
   getPatientStats,
   assignPatientToDoctor,
-  updatePatientEmail
+  updatePatientEmail,
+  getPatientVisitHistory
 };

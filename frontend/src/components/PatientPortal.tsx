@@ -82,28 +82,7 @@ export default function PatientPortal() {
   
   // State Management
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [prescriptions, setPrescriptions] = useState<Prescription[]>([
-    {
-      id: 'p1',
-      prescribedDate: '2024-01-15',
-      doctorName: 'Dr. Himanshu Sonagara',
-      instructions: 'Take prescribed medicines as directed. Maintain good hygiene and follow the diet chart. Avoid oily and spicy foods. Drink plenty of water. Rest properly and avoid stress.',
-      nextVisitDate: '2024-01-30',
-      priority: 'high',
-      type: 'current',
-      status: 'active'
-    },
-    {
-      id: 'p2',
-      prescribedDate: '2023-12-20',
-      doctorName: 'Dr. Himanshu Sonagara',
-      instructions: 'Continue with the homeopathic treatment. Apply the prescribed ointment twice daily. Keep the affected area clean and dry. Avoid tight clothing.',
-      nextVisitDate: '2024-01-05',
-      priority: 'medium',
-      type: 'past',
-      status: 'completed'
-    }
-  ]);
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [camps, setCamps] = useState<Camp[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
@@ -129,9 +108,11 @@ export default function PatientPortal() {
     '05:00 PM', '05:30 PM', '06:00 PM'
   ], []);
 
-  // Initialize data on component mount
+  // Initialize data on component mount and when user changes
   useEffect(() => {
-    loadData();
+    if (user?.id) {
+      loadData();
+    }
     // Listen for camp notifications
     const handleCampNotification = (event: CustomEvent) => {
       const campData = event.detail;
@@ -152,7 +133,7 @@ export default function PatientPortal() {
 
     window.addEventListener('campAdded', handleCampNotification as EventListener);
     return () => window.removeEventListener('campAdded', handleCampNotification as EventListener);
-  }, [toast]);
+  }, [user?.id, toast]);
 
   // Check available slots function
   const checkAvailableSlots = useCallback((date: Date, timeSlot: string) => {
@@ -200,43 +181,277 @@ export default function PatientPortal() {
 
   // Load data from API
   const loadData = async () => {
+    if (!user?.id) {
+      console.warn('No user ID available, cannot load patient data');
+      return;
+    }
+
     try {
+      console.log('🔥 Loading patient data for user:', user.id);
+      
       // Load appointments for the current patient
-      const appointmentsData = await api.getAppointments();
-      const formattedAppointments = appointmentsData.map((apt: any) => ({
-        id: apt._id || apt.id,
-        date: apt.date,
-        time: apt.time,
-        type: apt.type,
-        reason: apt.reason,
-        status: apt.status || 'pending',
-        slotNumber: apt.slotNumber
-      }));
-      setAppointments(formattedAppointments);
+      try {
+        console.log('🔥 Loading appointments from API...');
+        const appointmentsData = await api.getAppointments();
+        console.log('🔥 Appointments API response:', appointmentsData);
+        
+        if (appointmentsData?.success && Array.isArray(appointmentsData.data)) {
+          const formattedAppointments = appointmentsData.data.map((apt: any) => ({
+            id: apt._id || apt.id,
+            date: apt.date,
+            time: apt.time || apt.timeSlot,
+            type: apt.type,
+            reason: apt.reason,
+            status: apt.status || 'pending',
+            slotNumber: apt.slotNumber
+          }));
+          console.log('🔥 Formatted appointments:', formattedAppointments);
+          setAppointments(formattedAppointments);
+        } else if (Array.isArray(appointmentsData)) {
+          // Handle direct array response
+          const formattedAppointments = appointmentsData.map((apt: any) => ({
+            id: apt._id || apt.id,
+            date: apt.date,
+            time: apt.time || apt.timeSlot,
+            type: apt.type,
+            reason: apt.reason,
+            status: apt.status || 'pending',
+            slotNumber: apt.slotNumber
+          }));
+          console.log('🔥 Formatted appointments (direct array):', formattedAppointments);
+          setAppointments(formattedAppointments);
+        } else {
+          console.log('🔥 No appointments found for this patient');
+          setAppointments([]);
+        }
+      } catch (appointmentError) {
+        console.error('Failed to load appointments:', appointmentError);
+        setAppointments([]);
+      }
+
+      // Load prescriptions for the current patient
+      try {
+        console.log('🔥 Loading prescriptions from API...');
+        const prescriptionsData = await api.prescriptions.getMyPrescriptions();
+        console.log('🔥 Prescriptions API response:', prescriptionsData);
+        
+        if (prescriptionsData && prescriptionsData.data && Array.isArray(prescriptionsData.data.prescriptions)) {
+          const formattedPrescriptions = prescriptionsData.data.prescriptions.map((prescription: any) => ({
+            id: prescription._id || prescription.id,
+            prescribedDate: prescription.prescribedDate || prescription.date,
+            doctorName: prescription.doctorId?.name || prescription.doctorName || 'Dr. Unknown',
+            instructions: prescription.instructions || prescription.additionalNotes || 'No instructions provided',
+            nextVisitDate: prescription.nextVisitDate,
+            priority: prescription.priority || 'medium',
+            type: prescription.type || 'current',
+            status: prescription.status || 'active'
+          }));
+          
+          console.log('🔥 Real prescriptions loaded:', formattedPrescriptions.length);
+          formattedPrescriptions.forEach((prescription, index) => {
+            console.log(`🔥 Prescription ${index + 1}:`, {
+              instructions: prescription.instructions,
+              doctorName: prescription.doctorName,
+              id: prescription.id
+            });
+          });
+          setPrescriptions(formattedPrescriptions);
+        } else {
+          console.log('🔥 No prescriptions found for this patient');
+          setPrescriptions([]);
+        }
+      } catch (prescError) {
+        console.error('Failed to load prescriptions:', prescError);
+        setPrescriptions([]);
+      }
       
       // Load camps from API (these are public/shared data)
-      const campsData = await api.camps.getAll();
-      setCamps(campsData);
-      
-      // Initialize other data
-      setAlerts([]);
-      setReports([]);
+      try {
+        console.log('🔥 Loading camps from API...');
+        const campsData = await api.camps.getCamps();
+        console.log('🔥 Camps API response:', campsData);
+        
+        if (Array.isArray(campsData) && campsData.length > 0) {
+          setCamps(campsData);
+        } else {
+          console.log('🔥 No camps found');
+          setCamps([]);
+        }
+      } catch (campError) {
+        console.error('Failed to load camps from API:', campError);
+        setCamps([]);
+      }
       
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error loading data from server:', error);
+      
+      // Show error message to user
       toast({
-        title: "Error",
-        description: "Failed to load data from server",
+        title: "Error Loading Data",
+        description: "Failed to load your patient data. Please try refreshing the page.",
         variant: "destructive",
       });
-      
-      // Fallback to empty arrays if API fails
-      setAppointments([]);
-      setPrescriptions([]);
-      setCamps([]);
-      setAlerts([]);
-      setReports([]);
     }
+  };
+
+  // Initialize sample data for patient portal
+  const initializeSampleData = () => {
+    // Sample appointments
+    const sampleAppointments: Appointment[] = [
+      {
+        id: 'apt_001',
+        date: '2025-10-05',
+        time: '10:00 AM',
+        type: 'consultation',
+        reason: 'Regular checkup',
+        status: 'approved'
+      },
+      {
+        id: 'apt_002',
+        date: '2025-09-28',
+        time: '02:30 PM',
+        type: 'follow-up',
+        reason: 'Blood pressure monitoring',
+        status: 'completed'
+      },
+      {
+        id: 'apt_003',
+        date: '2025-10-12',
+        time: '11:30 AM',
+        type: 'consultation',
+        reason: 'Skin condition review',
+        status: 'pending'
+      }
+    ];
+
+    // Sample prescriptions with detailed doctor notes
+    const samplePrescriptions: Prescription[] = [
+      {
+        id: 'pres_001',
+        prescribedDate: '2025-09-28',
+        doctorName: 'Dr. Himanshu Sonagara',
+        instructions: 'Take Paracetamol 500mg twice daily after meals for fever and headache. Monitor temperature daily. Stay hydrated and get adequate rest. Return if fever persists beyond 3 days or if temperature exceeds 102°F.',
+        nextVisitDate: '2025-10-05',
+        priority: 'medium',
+        type: 'current',
+        status: 'active'
+      },
+      {
+        id: 'pres_002',
+        prescribedDate: '2025-09-15',
+        doctorName: 'Dr. Himanshu Sonagara',
+        instructions: 'Complete the 7-day course of Amoxicillin 250mg three times daily. Take probiotics to maintain gut health. Avoid alcohol during treatment. Follow up if symptoms worsen or new symptoms appear.',
+        priority: 'high',
+        type: 'past',
+        status: 'completed'
+      },
+      {
+        id: 'pres_003',
+        prescribedDate: '2025-09-20',
+        doctorName: 'Dr. Himanshu Sonagara',
+        instructions: 'Apply prescribed ointment twice daily on affected areas. Keep the area clean and dry. Wear loose cotton clothing. Avoid scratching. Use the medication for full 10 days even if symptoms improve.',
+        nextVisitDate: '2025-10-12',
+        priority: 'medium',
+        type: 'current',
+        status: 'active'
+      }
+    ];
+
+    // Sample camps
+    const sampleCamps: Camp[] = [
+      {
+        id: 'camp_001',
+        title: 'Free Health Camp - Anand',
+        location: 'Anand Community Center',
+        date: '2025-10-22',
+        time: '09:00 AM',
+        organizer: 'Dr. Himanshu Sonagara',
+        description: 'Free health checkup and consultation for villagers. Blood pressure, diabetes screening, and general consultation available.',
+        type: 'health',
+        capacity: 100,
+        registered: 25,
+        status: 'upcoming'
+      },
+      {
+        id: 'camp_002',
+        title: 'Eye Care Camp - Surat',
+        location: 'Surat School Grounds',
+        date: '2025-10-08',
+        time: '10:00 AM',
+        organizer: 'Dr. Himanshu Sonagara',
+        description: 'Eye examination and glasses distribution. Free eye checkup for all ages.',
+        type: 'eye-care',
+        capacity: 50,
+        registered: 12,
+        status: 'upcoming'
+      },
+      {
+        id: 'camp_003',
+        title: 'Health Checkup Camp - Delhi',
+        location: 'Delhi Community Hall',
+        date: '2025-10-08',
+        time: '09:00 AM',
+        organizer: 'Dr. Himanshu Sonagara',
+        description: 'Comprehensive health screening and vaccination drive.',
+        type: 'screening',
+        capacity: 75,
+        registered: 18,
+        status: 'upcoming'
+      }
+    ];
+
+    // Sample reports
+    const sampleReports: Report[] = [
+      {
+        id: 'rep_001',
+        title: 'Blood Test Report',
+        date: '2025-09-25',
+        type: 'lab',
+        doctor: 'Dr. Himanshu Sonagara',
+        description: 'Complete blood count and lipid profile results',
+        status: 'available'
+      },
+      {
+        id: 'rep_002',
+        title: 'X-Ray Chest',
+        date: '2025-09-15',
+        type: 'radiology',
+        doctor: 'Dr. Himanshu Sonagara',
+        description: 'Chest X-ray examination for respiratory assessment',
+        status: 'available'
+      }
+    ];
+
+    // Sample alerts
+    const sampleAlerts: Alert[] = [
+      {
+        id: 'alert_001',
+        type: 'appointment',
+        title: 'Upcoming Appointment',
+        message: 'You have an appointment scheduled for October 5th at 10:00 AM',
+        time: new Date().toISOString(),
+        read: false,
+        priority: 'high'
+      },
+      {
+        id: 'alert_002',
+        type: 'camp',
+        title: 'New Health Camp',
+        message: 'Free Health Camp organized on October 8th at Surat School Grounds',
+        time: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        read: false,
+        priority: 'medium'
+      }
+    ];
+
+    // Set all sample data
+    setAppointments(sampleAppointments);
+    setPrescriptions(samplePrescriptions);
+    setCamps(sampleCamps);
+    setReports(sampleReports);
+    setAlerts(sampleAlerts);
+
+    console.log('Initialized with sample data for patient portal');
   };
 
   // Book appointment function
@@ -271,7 +486,12 @@ export default function PatientPortal() {
         reason: newAppointment.reason,
       };
 
+      console.log('Booking appointment with data:', appointmentData);
+      console.log('Current user:', user);
+      console.log('User role:', user?.role);
+      
       const response = await api.createAppointment(appointmentData);
+      console.log('Appointment booking response:', response);
       
       // Add to local state
       const newAppointmentObj: Appointment = {
@@ -313,9 +533,25 @@ export default function PatientPortal() {
       
     } catch (error) {
       console.error('Error booking appointment:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      
+      // More detailed error message for debugging
+      let errorMessage = error.message || "Failed to book appointment. Please try again.";
+      if (error.message && error.message.includes('endpoint not found')) {
+        errorMessage = "API endpoint not found. Please check if the server is running.";
+      } else if (error.message && error.message.includes('Patient role required')) {
+        errorMessage = "Please log in as a patient to book appointments.";
+      } else if (error.message && error.message.includes('token')) {
+        errorMessage = "Authentication error. Please log in again.";
+      }
+      
       toast({
         title: "Booking Failed",
-        description: error.message || "Failed to book appointment. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       });
     }

@@ -420,12 +420,27 @@ const createPrescriptionValidation = [
   
   body('campId')
     .optional()
-    .isMongoId()
-    .withMessage('Invalid camp ID'),
+    .custom((value) => {
+      // Allow null, undefined, or valid MongoDB ObjectId
+      if (value === null || value === undefined || value === '') {
+        return true;
+      }
+      // Check if it's a valid MongoDB ObjectId
+      if (typeof value === 'string' && value.match(/^[0-9a-fA-F]{24}$/)) {
+        return true;
+      }
+      throw new Error('Invalid camp ID');
+    }),
   
   body('visitId')
-    .isMongoId()
-    .withMessage('Invalid visit ID'),
+    .optional()
+    .custom((value) => {
+      // Allow auto-generated visit IDs or MongoDB ObjectIds
+      if (typeof value === 'string' && value.length > 0) {
+        return true;
+      }
+      throw new Error('Visit ID must be a valid string');
+    }),
   
   body('medicines')
     .isArray({ min: 1 })
@@ -462,6 +477,14 @@ const createPrescriptionValidation = [
     .trim()
     .notEmpty()
     .withMessage('Symptoms are required'),
+  
+  body('diagnosis')
+    .optional()
+    .trim(),
+  
+  body('additionalNotes')
+    .optional()
+    .trim(),
   
   body('followUpDate')
     .optional()
