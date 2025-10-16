@@ -7,7 +7,9 @@ const {
   deleteMedicine,
   updateQuantity,
   getMedicineStats,
-  getExpiringMedicines
+  getExpiringMedicines,
+  importMedicines,
+  upload
 } = require('../controllers/medicineController');
 const { authenticateToken, requireDoctor } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/errorHandler');
@@ -33,6 +35,11 @@ router.get('/stats', getMedicineStats);
 // @desc    Get expiring medicines
 // @access  Private (Doctor only)
 router.get('/expiring', getExpiringMedicines);
+
+// @route   POST /api/medicines/import
+// @desc    Import medicines from CSV/JSON file
+// @access  Private (Doctor only)
+router.post('/import', upload.single('file'), importMedicines);
 
 // @route   GET /api/medicines
 // @desc    Get all medicines for a doctor

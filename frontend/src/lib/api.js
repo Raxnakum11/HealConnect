@@ -316,6 +316,29 @@ export class MedicinesAPI {
     const response = await HttpClient.get('/medicines/expiring', { days });
     return response.data || response;
   }
+
+  static async importMedicines(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const token = TokenManager.getToken();
+    const url = `${API_BASE_URL}/medicines/import`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Import failed');
+    }
+    
+    return await response.json();
+  }
 }
 
 // Camps API
@@ -406,7 +429,7 @@ export class PrescriptionsAPI {
 }
 
 // Email Notifications API
-class NotificationsAPI {
+export class NotificationsAPI {
   static async sendEmailNotification(patientId, type, data) {
     return HttpClient.post('/notifications/email', {
       patientId,
@@ -435,7 +458,7 @@ class NotificationsAPI {
 }
 
 // Appointments API
-class AppointmentsAPI {
+export class AppointmentsAPI {
   static async getAppointments(params = {}) {
     return HttpClient.get('/appointments', params);
   }

@@ -108,9 +108,11 @@ export default function PatientPortal() {
     '05:00 PM', '05:30 PM', '06:00 PM'
   ], []);
 
-  // Initialize data on component mount
+  // Initialize data on component mount and when user changes
   useEffect(() => {
-    loadData();
+    if (user?.id) {
+      loadData();
+    }
     // Listen for camp notifications
     const handleCampNotification = (event: CustomEvent) => {
       const campData = event.detail;
@@ -131,7 +133,7 @@ export default function PatientPortal() {
 
     window.addEventListener('campAdded', handleCampNotification as EventListener);
     return () => window.removeEventListener('campAdded', handleCampNotification as EventListener);
-  }, [toast]);
+  }, [user?.id, toast]);
 
   // Check available slots function
   const checkAvailableSlots = useCallback((date: Date, timeSlot: string) => {
@@ -179,74 +181,116 @@ export default function PatientPortal() {
 
   // Load data from API
   const loadData = async () => {
+    if (!user?.id) {
+      console.warn('No user ID available, cannot load patient data');
+      return;
+    }
+
     try {
+      console.log('🔥 Loading patient data for user:', user.id);
+      
       // Load appointments for the current patient
-      const appointmentsData = await api.getAppointments();
-      if (Array.isArray(appointmentsData) && appointmentsData.length > 0) {
-        const formattedAppointments = appointmentsData.map((apt: any) => ({
-          id: apt._id || apt.id,
-          date: apt.date,
-          time: apt.time,
-          type: apt.type,
-          reason: apt.reason,
-          status: apt.status || 'pending',
-          slotNumber: apt.slotNumber
-        }));
-        setAppointments(formattedAppointments);
+      try {
+        console.log('🔥 Loading appointments from API...');
+        const appointmentsData = await api.getAppointments();
+        console.log('🔥 Appointments API response:', appointmentsData);
+        
+        if (appointmentsData?.success && Array.isArray(appointmentsData.data)) {
+          const formattedAppointments = appointmentsData.data.map((apt: any) => ({
+            id: apt._id || apt.id,
+            date: apt.date,
+            time: apt.time || apt.timeSlot,
+            type: apt.type,
+            reason: apt.reason,
+            status: apt.status || 'pending',
+            slotNumber: apt.slotNumber
+          }));
+          console.log('🔥 Formatted appointments:', formattedAppointments);
+          setAppointments(formattedAppointments);
+        } else if (Array.isArray(appointmentsData)) {
+          // Handle direct array response
+          const formattedAppointments = appointmentsData.map((apt: any) => ({
+            id: apt._id || apt.id,
+            date: apt.date,
+            time: apt.time || apt.timeSlot,
+            type: apt.type,
+            reason: apt.reason,
+            status: apt.status || 'pending',
+            slotNumber: apt.slotNumber
+          }));
+          console.log('🔥 Formatted appointments (direct array):', formattedAppointments);
+          setAppointments(formattedAppointments);
+        } else {
+          console.log('🔥 No appointments found for this patient');
+          setAppointments([]);
+        }
+      } catch (appointmentError) {
+        console.error('Failed to load appointments:', appointmentError);
+        setAppointments([]);
       }
 
       // Load prescriptions for the current patient
       try {
+        console.log('🔥 Loading prescriptions from API...');
         const prescriptionsData = await api.prescriptions.getMyPrescriptions();
+        console.log('🔥 Prescriptions API response:', prescriptionsData);
+        
         if (prescriptionsData && prescriptionsData.data && Array.isArray(prescriptionsData.data.prescriptions)) {
-          setPrescriptions(prescriptionsData.data.prescriptions);
+          const formattedPrescriptions = prescriptionsData.data.prescriptions.map((prescription: any) => ({
+            id: prescription._id || prescription.id,
+            prescribedDate: prescription.prescribedDate || prescription.date,
+            doctorName: prescription.doctorId?.name || prescription.doctorName || 'Dr. Unknown',
+            instructions: prescription.instructions || prescription.additionalNotes || 'No instructions provided',
+            nextVisitDate: prescription.nextVisitDate,
+            priority: prescription.priority || 'medium',
+            type: prescription.type || 'current',
+            status: prescription.status || 'active'
+          }));
+          
+          console.log('🔥 Real prescriptions loaded:', formattedPrescriptions.length);
+          formattedPrescriptions.forEach((prescription, index) => {
+            console.log(`🔥 Prescription ${index + 1}:`, {
+              instructions: prescription.instructions,
+              doctorName: prescription.doctorName,
+              id: prescription.id
+            });
+          });
+          setPrescriptions(formattedPrescriptions);
+        } else {
+          console.log('🔥 No prescriptions found for this patient');
+          setPrescriptions([]);
         }
       } catch (prescError) {
-        console.warn('Failed to load prescriptions:', prescError);
-        // Use sample data as fallback for prescriptions
-        const samplePrescriptions: Prescription[] = [
-          {
-            id: 'pres_001',
-            prescribedDate: '2025-09-28',
-            doctorName: 'Dr. Himanshu Sonagara',
-            instructions: 'Take Paracetamol 500mg twice daily after meals for fever and headache. Monitor temperature daily. Stay hydrated and get adequate rest. Return if fever persists beyond 3 days or if temperature exceeds 102°F.',
-            nextVisitDate: '2025-10-05',
-            priority: 'medium',
-            type: 'current',
-            status: 'active'
-          }
-        ];
-        setPrescriptions(samplePrescriptions);
-        console.warn('Using sample prescription data due to API error');
+        console.error('Failed to load prescriptions:', prescError);
+        setPrescriptions([]);
       }
       
       // Load camps from API (these are public/shared data)
       try {
+        console.log('🔥 Loading camps from API...');
         const campsData = await api.camps.getCamps();
+        console.log('🔥 Camps API response:', campsData);
+        
         if (Array.isArray(campsData) && campsData.length > 0) {
           setCamps(campsData);
+        } else {
+          console.log('🔥 No camps found');
+          setCamps([]);
         }
       } catch (campError) {
-        console.warn('Failed to load camps from API, using sample data');
-      }
-      
-      // Always initialize sample data if no real data is available
-      if (appointments.length === 0 && prescriptions.length === 0) {
-        initializeSampleData();
+        console.error('Failed to load camps from API:', campError);
+        setCamps([]);
       }
       
     } catch (error) {
       console.error('Error loading data from server:', error);
       
-      // Show a user-friendly message about offline mode
+      // Show error message to user
       toast({
-        title: "Working Offline",
-        description: "Loading sample data for demonstration. Connect to server for real data.",
-        variant: "default",
+        title: "Error Loading Data",
+        description: "Failed to load your patient data. Please try refreshing the page.",
+        variant: "destructive",
       });
-      
-      // Initialize with sample data when API fails
-      initializeSampleData();
     }
   };
 
@@ -442,7 +486,12 @@ export default function PatientPortal() {
         reason: newAppointment.reason,
       };
 
+      console.log('Booking appointment with data:', appointmentData);
+      console.log('Current user:', user);
+      console.log('User role:', user?.role);
+      
       const response = await api.createAppointment(appointmentData);
+      console.log('Appointment booking response:', response);
       
       // Add to local state
       const newAppointmentObj: Appointment = {
@@ -484,9 +533,25 @@ export default function PatientPortal() {
       
     } catch (error) {
       console.error('Error booking appointment:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      
+      // More detailed error message for debugging
+      let errorMessage = error.message || "Failed to book appointment. Please try again.";
+      if (error.message && error.message.includes('endpoint not found')) {
+        errorMessage = "API endpoint not found. Please check if the server is running.";
+      } else if (error.message && error.message.includes('Patient role required')) {
+        errorMessage = "Please log in as a patient to book appointments.";
+      } else if (error.message && error.message.includes('token')) {
+        errorMessage = "Authentication error. Please log in again.";
+      }
+      
       toast({
         title: "Booking Failed",
-        description: error.message || "Failed to book appointment. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       });
     }

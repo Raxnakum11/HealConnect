@@ -67,8 +67,13 @@ export default function EmailNotificationDialog({ isOpen, onClose, patients }: E
   // Test email state
   const [testEmail, setTestEmail] = useState('');
 
-  // Get patients with email addresses
-  const patientsWithEmail = patients.filter(patient => patient.email);
+  // Get patients with email addresses (filter out empty strings and "No email")
+  const patientsWithEmail = patients.filter(patient => 
+    patient.email && 
+    patient.email.trim() !== '' && 
+    patient.email !== 'No email' &&
+    patient.email.includes('@') // Basic email validation
+  );
 
   const handleSendSingleEmail = async () => {
     if (!singleEmail.patientId || !singleEmail.message) {

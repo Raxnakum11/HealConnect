@@ -27,6 +27,7 @@ import BookingComponent from './DoctorDashboard/Booking';
 import Inventory from './DoctorDashboard/Inventory';
 import Camps from './DoctorDashboard/Camps';
 import Notification from './DoctorDashboard/Notification';
+import ImportMedicinesDialog from './DoctorDashboard/ImportMedicinesDialog';
 
 // Dialog Components
 import AddPatientDialog from './DoctorDashboard/AddPatientDialog';
@@ -191,6 +192,7 @@ export function DoctorDashboard() {
   const [showEmailNotificationDialog, setShowEmailNotificationDialog] = useState(false);
   const [showCampPatientsDialog, setShowCampPatientsDialog] = useState(false);
   const [selectedCampForPatients, setSelectedCampForPatients] = useState<Camp | null>(null);
+  const [showImportMedicinesDialog, setShowImportMedicinesDialog] = useState(false);
   
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
@@ -539,6 +541,7 @@ export function DoctorDashboard() {
       const patientData = {
         name: newPatient.name,
         mobile: newPatient.mobile,
+        email: newPatient.email || undefined, // Include email if provided
         age: parseInt(newPatient.age),
         gender: newPatient.gender,
         address: newPatient.address,
@@ -932,39 +935,27 @@ export function DoctorDashboard() {
   };
 
   const importMedicines = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.csv,.json';
-    input.onchange = (e: Event) => {
-      const target = e.target as HTMLInputElement;
-      const file = target.files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (event: ProgressEvent<FileReader>) => {
-          try {
-            const content = event.target?.result as string;
-            let importedMedicines = [];
-            
-            if (file.type === 'application/json') {
-              importedMedicines = JSON.parse(content);
-            } else {
-              // CSV parsing logic would go here
-              toast({ title: "CSV import feature coming soon!", variant: "default" });
-              return;
-            }
-            
-            const updatedMedicines = [...medicines, ...importedMedicines];
-            setMedicines(updatedMedicines);
-            localStorage.setItem('doctor_medicines', JSON.stringify(updatedMedicines));
-            toast({ title: `${importedMedicines.length} medicines imported successfully!` });
-          } catch (error) {
-            toast({ title: "Error importing medicines", variant: "destructive" });
-          }
-        };
-        reader.readAsText(file);
-      }
-    };
-    input.click();
+    setShowImportMedicinesDialog(true);
+  };
+
+  const fetchMedicines = async () => {
+    try {
+      const medicinesData = await api.medicines.getMedicines();
+      console.log('Loaded medicines data:', medicinesData);
+      setMedicines(Array.isArray(medicinesData) ? medicinesData : []);
+    } catch (medicineError) {
+      console.error('Error loading medicines:', medicineError);
+      toast({
+        title: "Error loading medicines",
+        description: "Failed to load medicines from server",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleImportSuccess = async () => {
+    // Refresh medicines after successful import
+    await fetchMedicines();
   };
 
   return (
@@ -1004,19 +995,34 @@ export function DoctorDashboard() {
 </div>
 </div>
 </Card>
-{/* Tabs Section */}
+{/* Tabs Section - Mobile Responsive */}
 <Tabs value={activeTab} onValueChange={setActiveTab}>
-  <TabsList>
-    <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-    <TabsTrigger value="patients">Patients</TabsTrigger>
-    <TabsTrigger value="bookings">Bookings</TabsTrigger>
-    <TabsTrigger value="inventory">Inventory</TabsTrigger>
-    <TabsTrigger value="camps">Camps</TabsTrigger>
-    <TabsTrigger value="notifications">
-      <Bell className="w-4 h-4 mr-1" />
-      Notifications
-    </TabsTrigger>
-  </TabsList>
+  <div className="sticky top-0 bg-background/80 backdrop-blur-sm z-10 pb-2">
+    <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 h-auto p-1 gap-1">
+      <TabsTrigger value="dashboard" className="text-xs sm:text-sm px-2 py-2">
+        <span className="hidden sm:inline">Dashboard</span>
+        <span className="sm:hidden">Home</span>
+      </TabsTrigger>
+      <TabsTrigger value="patients" className="text-xs sm:text-sm px-2 py-2">
+        Patients
+      </TabsTrigger>
+      <TabsTrigger value="bookings" className="text-xs sm:text-sm px-2 py-2">
+        Bookings
+      </TabsTrigger>
+      <TabsTrigger value="inventory" className="text-xs sm:text-sm px-2 py-2">
+        <span className="hidden sm:inline">Inventory</span>
+        <span className="sm:hidden">Meds</span>
+      </TabsTrigger>
+      <TabsTrigger value="camps" className="text-xs sm:text-sm px-2 py-2">
+        Camps
+      </TabsTrigger>
+      <TabsTrigger value="notifications" className="text-xs sm:text-sm px-2 py-2 col-span-2 sm:col-span-1">
+        <Bell className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+        <span className="hidden sm:inline">Notifications</span>
+        <span className="sm:hidden">Alerts</span>
+      </TabsTrigger>
+    </TabsList>
+  </div>
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6">
@@ -1196,6 +1202,13 @@ export function DoctorDashboard() {
           onClose={() => setShowCampPatientsDialog(false)}
           camp={selectedCampForPatients}
           allPatients={patients}
+        />
+
+        {/* Import Medicines Dialog */}
+        <ImportMedicinesDialog
+          isOpen={showImportMedicinesDialog}
+          onClose={() => setShowImportMedicinesDialog(false)}
+          onImportSuccess={handleImportSuccess}
         />
       </div>
     </Layout>

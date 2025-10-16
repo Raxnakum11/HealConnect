@@ -1,5 +1,9 @@
 const Medicine = require('../models/Medicine');
 const { asyncHandler } = require('../middleware/errorHandler');
+const multer = require('multer');
+const csv = require('csv-parser');
+const fs = require('fs');
+const path = require('path');
 
 // @desc    Get all medicines for a doctor
 // @route   GET /api/medicines
@@ -374,6 +378,176 @@ const getExpiringMedicines = asyncHandler(async (req, res) => {
   });
 });
 
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, '../../uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'text/csv' || 
+        file.mimetype === 'application/json' || 
+        file.originalname.endsWith('.csv') || 
+        file.originalname.endsWith('.json')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only CSV and JSON files are allowed!'), false);
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  }
+});
+
+// @desc    Import medicines from CSV/JSON file
+// @route   POST /api/medicines/import
+// @access  Private (Doctor only)
+const importMedicines = asyncHandler(async (req, res) => {
+  const file = req.file;
+  
+  if (!file) {
+    return res.status(400).json({
+      success: false,
+      message: 'No file uploaded'
+    });
+  }
+
+  let importedMedicines = [];
+  const errors = [];
+  
+  try {
+    if (file.mimetype === 'application/json' || file.originalname.endsWith('.json')) {
+      // Handle JSON file
+      const jsonData = JSON.parse(fs.readFileSync(file.path, 'utf8'));
+      
+      if (!Array.isArray(jsonData)) {
+        throw new Error('JSON file must contain an array of medicines');
+      }
+      
+      importedMedicines = jsonData;
+    } else if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
+      // Handle CSV file
+      const csvData = [];
+      
+      await new Promise((resolve, reject) => {
+        fs.createReadStream(file.path)
+          .pipe(csv())
+          .on('data', (row) => {
+            csvData.push(row);
+          })
+          .on('end', () => {
+            resolve();
+          })
+          .on('error', (error) => {
+            reject(error);
+          });
+      });
+      
+      importedMedicines = csvData;
+    }
+    
+    // Validate and process each medicine
+    const processedMedicines = [];
+    
+    for (let i = 0; i < importedMedicines.length; i++) {
+      const medicine = importedMedicines[i];
+      
+      try {
+        // Validate required fields
+        if (!medicine.name || !medicine.batch || !medicine.quantity || !medicine.expiryDate) {
+          errors.push(`Row ${i + 1}: Missing required fields (name, batch, quantity, expiryDate)`);
+          continue;
+        }
+        
+        // Validate and format data
+        const processedMedicine = {
+          name: medicine.name.trim(),
+          batch: medicine.batch.trim(),
+          quantity: parseInt(medicine.quantity),
+          size: medicine.size ? medicine.size.trim() : '',
+          unit: medicine.unit || 'tablets',
+          expiryDate: new Date(medicine.expiryDate),
+          priority: medicine.priority || 'medium',
+          type: medicine.type || 'clinic',
+          manufacturer: medicine.manufacturer || '',
+          description: medicine.description || '',
+          costPerUnit: parseFloat(medicine.costPerUnit) || 0,
+          doctorId: req.user.id,
+          isActive: true
+        };
+        
+        // Validate enum values
+        if (!['mg', 'g', 'ml', 'tablets', 'capsules', 'drops', 'syrup'].includes(processedMedicine.unit)) {
+          processedMedicine.unit = 'tablets';
+        }
+        
+        if (!['high', 'medium', 'low'].includes(processedMedicine.priority)) {
+          processedMedicine.priority = 'medium';
+        }
+        
+        if (!['clinic', 'camp', 'others'].includes(processedMedicine.type)) {
+          processedMedicine.type = 'clinic';
+        }
+        
+        // Validate expiry date
+        if (isNaN(processedMedicine.expiryDate.getTime())) {
+          errors.push(`Row ${i + 1}: Invalid expiry date format`);
+          continue;
+        }
+        
+        // Validate quantity
+        if (isNaN(processedMedicine.quantity) || processedMedicine.quantity < 0) {
+          errors.push(`Row ${i + 1}: Invalid quantity`);
+          continue;
+        }
+        
+        processedMedicines.push(processedMedicine);
+      } catch (error) {
+        errors.push(`Row ${i + 1}: ${error.message}`);
+      }
+    }
+    
+    // Insert valid medicines
+    if (processedMedicines.length > 0) {
+      await Medicine.insertMany(processedMedicines);
+    }
+    
+    // Clean up uploaded file
+    fs.unlinkSync(file.path);
+    
+    res.status(200).json({
+      success: true,
+      message: `Import completed. ${processedMedicines.length} medicines imported successfully.`,
+      data: {
+        imported: processedMedicines.length,
+        errors: errors
+      }
+    });
+    
+  } catch (error) {
+    // Clean up uploaded file on error
+    if (fs.existsSync(file.path)) {
+      fs.unlinkSync(file.path);
+    }
+    
+    res.status(400).json({
+      success: false,
+      message: 'Error processing file: ' + error.message,
+      errors: errors
+    });
+  }
+});
+
 module.exports = {
   getMedicines,
   getMedicine,
@@ -382,5 +556,7 @@ module.exports = {
   deleteMedicine,
   updateQuantity,
   getMedicineStats,
-  getExpiringMedicines
+  getExpiringMedicines,
+  importMedicines,
+  upload
 };

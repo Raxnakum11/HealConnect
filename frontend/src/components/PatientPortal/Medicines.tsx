@@ -10,6 +10,7 @@ interface Prescription {
   prescribedDate: string;
   doctorName: string;
   instructions: string;
+  additionalNotes?: string;
   nextVisitDate?: string;
   priority: 'high' | 'medium' | 'low';
   type: 'current' | 'past';
@@ -81,7 +82,7 @@ export default function Medicines({ prescriptions }: MedicinesProps) {
           <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
             <p className="text-sm font-medium text-blue-900 mb-2">Doctor's Instructions</p>
             <p className="text-sm text-blue-800 leading-relaxed whitespace-pre-wrap">
-              {prescription.instructions || 'No specific instructions provided.'}
+              {prescription.additionalNotes || prescription.instructions || 'No specific instructions provided.'}
             </p>
           </div>
 

@@ -44,14 +44,14 @@ const Booking: React.FC<BookingProps> = ({ bookings, handleBookingAction }) => {
 
   return (
     <>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-slate-800">Patient Bookings</h2>
-        <Badge className="bg-amber-100 text-amber-700 border-amber-200 px-4 py-2 text-sm font-semibold rounded-full">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6 gap-2 sm:gap-0">
+        <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800">Patient Bookings</h2>
+        <Badge className="bg-amber-100 text-amber-700 border-amber-200 px-3 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm font-semibold rounded-full w-fit">
           {bookings.filter(b => b.status === 'pending').length} Pending
         </Badge>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
         {bookings.map((booking) => (
           <Card key={booking.id} className={cn(
             'bg-gradient-to-br from-white to-blue-50/30 border border-blue-200/60 rounded-xl p-4 shadow-md hover:shadow-lg transition-all duration-300',

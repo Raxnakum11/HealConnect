@@ -166,22 +166,6 @@ export function LoginPage() {
             </div>
           </div>
         </Card>
-
-        {/* Demo Info */}
-        <Card className="p-4 bg-blue-50 border-blue-200">
-          <h3 className="font-semibold text-blue-800 mb-2">How to Login</h3>
-          <div className="space-y-2 text-sm text-blue-700">
-            <div>
-              • Enter your full name and mobile number
-            </div>
-            <div>
-              • Select your role (Patient or Doctor)
-            </div>
-            <div>
-              • No password required - just click Sign In!
-            </div>
-          </div>
-        </Card>
       </div>
     </div>
   );

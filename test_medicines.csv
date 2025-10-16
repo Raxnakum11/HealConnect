@@ -1,0 +1,6 @@
+name,batch,quantity,size,unit,expiryDate,priority,type,manufacturer,description,costPerUnit
+Paracetamol,PCM001,100,500,mg,2025-12-31,medium,clinic,Generic Pharma,Pain relief medication,2.50
+Amoxicillin,AMX002,50,250,mg,2026-06-30,high,clinic,MediCore,Antibiotic,5.00
+Aspirin,ASP003,75,100,mg,2025-08-15,low,others,Bayer,Blood thinner,1.75
+Ibuprofen,IBU004,60,400,mg,2025-11-20,medium,camp,Advil,Anti-inflammatory,3.20
+Vitamin C,VTC005,200,500,mg,2026-01-30,low,clinic,Nature Made,Immune support,0.80
