@@ -181,10 +181,52 @@ const createAppointment = async (req, res) => {
     if (req.user.role === 'patient') {
       patient = await Patient.findOne({ userId: req.user.id });
       if (!patient) {
-        return res.status(404).json({
-          success: false,
-          message: 'Patient profile not found'
-        });
+        // Auto-create minimal patient profile if missing
+        try {
+          // Generate unique patient ID
+          let patientId;
+          let isUnique = false;
+          let counter = 1;
+
+          const lastPatient = await Patient.findOne({}, { patientId: 1 }).sort({ patientId: -1 });
+          if (lastPatient && lastPatient.patientId) {
+            const lastNumber = parseInt(String(lastPatient.patientId).replace('PAT', ''));
+            counter = (isNaN(lastNumber) ? 0 : lastNumber) + 1;
+          }
+
+          while (!isUnique) {
+            patientId = `PAT${String(counter).padStart(4, '0')}`;
+            const exists = await Patient.findOne({ patientId });
+            if (!exists) {
+              isUnique = true;
+            } else {
+              counter++;
+            }
+          }
+
+          const patientData = {
+            patientId,
+            name: req.user.name || `User${req.user.mobile || ''}`.trim(),
+            email: req.user.email || '',
+            mobile: req.user.mobile || '',
+            age: 25,
+            gender: 'Other',
+            address: 'Not provided',
+            medicalHistory: '',
+            type: 'clinic',
+            userId: req.user.id,
+            isActive: true
+          };
+
+          patient = await Patient.create(patientData);
+          console.log(`✅ Auto-created patient during booking: ${patient.patientId} (${patient._id})`);
+        } catch (createErr) {
+          console.error('Auto-create patient failed:', createErr);
+          return res.status(404).json({
+            success: false,
+            message: 'Patient profile not found'
+          });
+        }
       }
     } else {
       return res.status(403).json({

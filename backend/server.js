@@ -176,15 +176,15 @@ const server = app.listen(PORT, () => {
 ║                    SGP Homeopathy Management System                    ║
 ║                              Backend API                               ║
 ╠════════════════════════════════════════════════════════════════════════╣
-║  Server is running on port ${PORT}                                           ║
-║  Environment: ${process.env.NODE_ENV || 'development'}                                     ║
-║  Database: ${process.env.MONGODB_URI ? 'Connected' : 'Not configured'}                                        ║
+║  Server is running on port ${PORT}                                     ║
+║  Environment: ${process.env.NODE_ENV || 'development'}                 ║
+║  Database: ${process.env.MONGODB_URI ? 'Connected' : 'Not configured'} ║
 ║                                                                        ║
 ║  API Endpoints:                                                        ║
-║  • Health Check: http://localhost:${PORT}/health                        ║
-║  • Authentication: http://localhost:${PORT}/api/auth                     ║
-║  • Patients: http://localhost:${PORT}/api/patients                      ║
-║  • Medicines: http://localhost:${PORT}/api/medicines                    ║
+║  • Health Check: http://localhost:${PORT}/health                       ║
+║  • Authentication: http://localhost:${PORT}/api/auth                   ║
+║  • Patients: http://localhost:${PORT}/api/patients                     ║
+║  • Medicines: http://localhost:${PORT}/api/medicines                   ║
 ║  • Camps: http://localhost:${PORT}/api/camps                           ║
 ║  • Prescriptions: http://localhost:${PORT}/api/prescriptions           ║
 ╚════════════════════════════════════════════════════════════════════════╝

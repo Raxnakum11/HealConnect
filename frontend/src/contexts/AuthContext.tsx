@@ -9,8 +9,6 @@ export interface User {
   email: string;
   mobile: string;
   role: UserRole;
-  specialization?: string;
-  licenseNumber?: string;
   createdAt?: string;
   lastLogin?: string;
 }
@@ -18,22 +16,21 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (mobileOrEmail: string, nameOrPassword: string, role?: UserRole, isEmailLogin?: boolean) => Promise<void>;
-  register: (registerData: RegisterData) => Promise<void>;
+  doctorLogin: (email: string, password: string) => Promise<void>;
+  doctorRegister: (data: DoctorRegisterData) => Promise<void>;
+  sendOtp: (mobile: string) => Promise<void>;
+  verifyOtp: (mobile: string, otp: string) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (profileData: Partial<User>) => Promise<void>;
   isAuthenticated: boolean;
   forceUpdate: number;
 }
 
-interface RegisterData {
+interface DoctorRegisterData {
   name: string;
   email: string;
   mobile: string;
   password: string;
-  role: UserRole;
-  specialization?: string;
-  licenseNumber?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -57,79 +54,81 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      // Token might be expired, clear it
       await AuthAPI.logout();
     } finally {
       setLoading(false);
     }
   };
 
-  const login = async (mobileOrEmail: string, nameOrPassword: string, role: UserRole = 'patient', isEmailLogin: boolean = false) => {
+  const doctorLogin = async (email: string, password: string) => {
     try {
-      console.log('AuthContext: Starting login process', { mobileOrEmail, isEmailLogin, role });
-      
-      let response;
-      if (isEmailLogin) {
-        // Email and password login
-        response = await AuthAPI.loginWithEmail(mobileOrEmail, nameOrPassword);
-      } else {
-        // Mobile and name login (backward compatibility)
-        response = await AuthAPI.loginWithMobile(mobileOrEmail, nameOrPassword, role);
-      }
-      
-      console.log('AuthContext: Login response received', response);
-      
+      const response = await AuthAPI.doctorLogin(email, password);
+
       if (response.success) {
         setUser(response.data.user);
-        // Force a re-render to ensure state updates
         setForceUpdate(prev => prev + 1);
-        // Force a small delay to ensure state updates
         await new Promise(resolve => setTimeout(resolve, 100));
-        console.log('AuthContext: Login successful, user set');
       } else {
         throw new Error(response.message || 'Login failed');
       }
-    } catch (error) {
-      console.error('AuthContext: Login error:', error);
-      
-      // Handle different types of errors
+    } catch (error: any) {
       if (error.message?.includes('Failed to fetch') || error.message?.includes('Network error')) {
         throw new Error('Unable to connect to server. Please check if the server is running and try again.');
-      } else if (error.message?.includes('expired')) {
-        throw new Error('Session expired. Please try logging in again.');
-      } else {
-        throw new Error(error.message || 'Login failed. Please try again.');
       }
+      throw new Error(error.message || 'Login failed. Please try again.');
     }
   };
 
-  const register = async (registerData: RegisterData) => {
+  const doctorRegister = async (data: DoctorRegisterData) => {
     try {
-      console.log('AuthContext: Starting registration process', { email: registerData.email, role: registerData.role });
-      const response = await AuthAPI.register(registerData);
-      console.log('AuthContext: Registration response received', response);
-      
+      const response = await AuthAPI.doctorRegister(data);
+
       if (response.success) {
         setUser(response.data.user);
-        // Force a re-render to ensure state updates
         setForceUpdate(prev => prev + 1);
-        // Force a small delay to ensure state updates
         await new Promise(resolve => setTimeout(resolve, 100));
-        console.log('AuthContext: Registration successful, user set');
       } else {
         throw new Error(response.message || 'Registration failed');
       }
-    } catch (error) {
-      console.error('AuthContext: Registration error:', error);
-      
-      // Handle different types of errors
+    } catch (error: any) {
       if (error.message?.includes('Failed to fetch') || error.message?.includes('Network error')) {
         throw new Error('Unable to connect to server. Please check if the server is running and try again.');
-      } else if (error.message?.includes('already registered')) {
-        throw new Error(error.message);
-      } else {
-        throw new Error(error.message || 'Registration failed. Please try again.');
       }
+      throw new Error(error.message || 'Registration failed. Please try again.');
+    }
+  };
+
+  const sendOtp = async (mobile: string) => {
+    try {
+      const response = await AuthAPI.sendOtp(mobile);
+
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to send OTP');
+      }
+    } catch (error: any) {
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('Network error')) {
+        throw new Error('Unable to connect to server. Please check if the server is running.');
+      }
+      throw new Error(error.message || 'Failed to send OTP. Please try again.');
+    }
+  };
+
+  const verifyOtp = async (mobile: string, otp: string) => {
+    try {
+      const response = await AuthAPI.verifyOtp(mobile, otp);
+
+      if (response.success) {
+        setUser(response.data.user);
+        setForceUpdate(prev => prev + 1);
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } else {
+        throw new Error(response.message || 'OTP verification failed');
+      }
+    } catch (error: any) {
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('Network error')) {
+        throw new Error('Unable to connect to server. Please check if the server is running.');
+      }
+      throw new Error(error.message || 'OTP verification failed. Please try again.');
     }
   };
 
@@ -139,7 +138,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
     } catch (error) {
       console.error('Logout error:', error);
-      // Clear user anyway
       setUser(null);
     }
   };
@@ -161,8 +159,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={{
       user,
       loading,
-      login,
-      register,
+      doctorLogin,
+      doctorRegister,
+      sendOtp,
+      verifyOtp,
       logout,
       updateProfile,
       isAuthenticated: !!user,

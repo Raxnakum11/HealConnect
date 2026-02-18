@@ -261,7 +261,7 @@ export function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-t from-blue-200/50 via-blue-100/40 to-blue-50/30 rounded-3xl"></div>
         <div className="absolute inset-0 bg-gradient-to-br from-blue-300/20 to-blue-100/30 rounded-3xl"></div>
         <div className="relative max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-medical-dark mb-12">Our Specialties</h2>
+          <h2 className="text-3xl font-bold text-medical-dark mb-12">Our Services</h2>
           
           <div className="grid md:grid-cols-3 gap-6">
             <Card className="p-6 bg-gradient-to-br from-white via-blue-50/20 to-white shadow-xl border border-blue-200/20 text-center hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">

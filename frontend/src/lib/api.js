@@ -1,8 +1,5 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-console.log('🔧 API_BASE_URL:', API_BASE_URL);
-console.log('🔧 Environment Variables:', import.meta.env);
-
 // Token management
 class TokenManager {
   static getToken() {
@@ -19,7 +16,7 @@ class TokenManager {
 
   static isTokenExpired(token) {
     if (!token) return true;
-    
+
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       return payload.exp * 1000 < Date.now();
@@ -34,12 +31,7 @@ class HttpClient {
   static async request(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
     const token = TokenManager.getToken();
-    
-    console.log('🚀 Making API request to:', url);
-    console.log('🚀 API_BASE_URL:', API_BASE_URL);
-    console.log('🚀 Endpoint:', endpoint);
-    console.log('🚀 Request options:', options);
-    
+
     const config = {
       headers: {
         'Content-Type': 'application/json',
@@ -55,39 +47,32 @@ class HttpClient {
 
     try {
       const response = await fetch(url, config);
-      console.log('Response status:', response.status);
-      
-      // Handle different response scenarios
+
       if (!response.ok) {
         let errorMessage;
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorData.error || `HTTP error! status: ${response.status}`;
         } catch (jsonError) {
-          // If response is not JSON, use status text
           errorMessage = response.statusText || `HTTP error! status: ${response.status}`;
         }
-        
-        // Handle specific status codes
+
         if (response.status === 404) {
           throw new Error('API endpoint not found. Please check if the server is running.');
         } else if (response.status === 500) {
           throw new Error('Server error. Please try again later.');
         } else if (response.status === 401 && errorMessage?.includes('expired')) {
           TokenManager.removeToken();
-          window.location.href = '/login';
+          window.location.href = '/';
           throw new Error('Session expired. Please login again.');
         }
-        
+
         throw new Error(errorMessage);
       }
 
       const data = await response.json();
-      console.log('Response data:', data);
       return data;
     } catch (error) {
-      console.error('API Request Error:', error);
-      
       if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
         throw new Error('Network error. Please check your internet connection and ensure the server is running.');
       }
@@ -129,47 +114,42 @@ class HttpClient {
   }
 }
 
+// ============================================================
 // Authentication API
+// ============================================================
 export class AuthAPI {
-  static async login(credentials) {
-    const response = await HttpClient.post('/auth/login', credentials);
+  // Doctor registration (single doctor only)
+  static async doctorRegister(data) {
+    const response = await HttpClient.post('/auth/doctor/register', data);
     if (response.success && response.data.token) {
       TokenManager.setToken(response.data.token);
     }
     return response;
   }
 
-  static async loginWithMobile(mobileNumber, name, role = 'patient') {
-    console.log('AuthAPI.loginWithMobile called with:', { mobileNumber, name, role });
-    const response = await HttpClient.post('/auth/login', { 
-      mobile: mobileNumber, 
-      name, 
-      role 
+  // Doctor login with email/password
+  static async doctorLogin(email, password) {
+    const response = await HttpClient.post('/auth/doctor/login', {
+      email: email.toLowerCase(),
+      password
     });
-    console.log('AuthAPI.loginWithMobile response:', response);
     if (response.success && response.data.token) {
-      console.log('Setting token:', response.data.token);
       TokenManager.setToken(response.data.token);
     }
     return response;
   }
 
-  static async loginWithEmail(email, password) {
-    console.log('AuthAPI.loginWithEmail called with:', { email });
-    const response = await HttpClient.post('/auth/login', { 
-      email: email.toLowerCase(), 
-      password 
+  // Patient: send OTP to mobile
+  static async sendOtp(mobile) {
+    return await HttpClient.post('/auth/patient/send-otp', { mobile });
+  }
+
+  // Patient: verify OTP and login
+  static async verifyOtp(mobile, otp) {
+    const response = await HttpClient.post('/auth/patient/verify-otp', {
+      mobile,
+      otp
     });
-    console.log('AuthAPI.loginWithEmail response:', response);
-    if (response.success && response.data.token) {
-      console.log('Setting token:', response.data.token);
-      TokenManager.setToken(response.data.token);
-    }
-    return response;
-  }
-
-  static async register(userData) {
-    const response = await HttpClient.post('/auth/register', userData);
     if (response.success && response.data.token) {
       TokenManager.setToken(response.data.token);
     }
@@ -206,7 +186,7 @@ export class AuthAPI {
   static getTokenData() {
     const token = TokenManager.getToken();
     if (!token || TokenManager.isTokenExpired(token)) return null;
-    
+
     try {
       return JSON.parse(atob(token.split('.')[1]));
     } catch (error) {
@@ -215,18 +195,13 @@ export class AuthAPI {
   }
 }
 
+// ============================================================
 // Patients API
+// ============================================================
 export class PatientsAPI {
   static async getPatients(params = {}) {
-    console.log('🔥 PatientsAPI.getPatients called with params:', params);
     const response = await HttpClient.get('/patients', params);
-    console.log('🔥 PatientsAPI.getPatients raw response:', response);
-    console.log('🔥 Response structure - data:', response.data);
-    console.log('🔥 Response structure - patients:', response.data?.patients);
-    
-    const result = response.data?.patients || response.data || response;
-    console.log('🔥 PatientsAPI.getPatients final result:', result);
-    return result;
+    return response.data?.patients || response.data || response;
   }
 
   static async getPatient(id) {
@@ -275,7 +250,9 @@ export class PatientsAPI {
   }
 }
 
+// ============================================================
 // Medicines API
+// ============================================================
 export class MedicinesAPI {
   static async getMedicines(params = {}) {
     const response = await HttpClient.get('/medicines', params);
@@ -320,10 +297,10 @@ export class MedicinesAPI {
   static async importMedicines(file) {
     const formData = new FormData();
     formData.append('file', file);
-    
+
     const token = TokenManager.getToken();
     const url = `${API_BASE_URL}/medicines/import`;
-    
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -331,17 +308,19 @@ export class MedicinesAPI {
       },
       body: formData
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.message || 'Import failed');
     }
-    
+
     return await response.json();
   }
 }
 
+// ============================================================
 // Camps API
+// ============================================================
 export class CampsAPI {
   static async getCamps(params = {}) {
     const response = await HttpClient.get('/camps', params);
@@ -389,7 +368,9 @@ export class CampsAPI {
   }
 }
 
+// ============================================================
 // Prescriptions API
+// ============================================================
 export class PrescriptionsAPI {
   static async getPrescriptions(params = {}) {
     return HttpClient.get('/prescriptions', params);
@@ -428,7 +409,9 @@ export class PrescriptionsAPI {
   }
 }
 
+// ============================================================
 // Email Notifications API
+// ============================================================
 export class NotificationsAPI {
   static async sendEmailNotification(patientId, type, data) {
     return HttpClient.post('/notifications/email', {
@@ -457,7 +440,9 @@ export class NotificationsAPI {
   }
 }
 
+// ============================================================
 // Appointments API
+// ============================================================
 export class AppointmentsAPI {
   static async getAppointments(params = {}) {
     return HttpClient.get('/appointments', params);
@@ -504,26 +489,24 @@ export const api = {
   prescriptions: PrescriptionsAPI,
   notifications: NotificationsAPI,
   appointments: AppointmentsAPI,
-  
-  // Convenience methods for backward compatibility
+
+  // Convenience methods
   async getAppointments(params = {}) {
-    const response = await AppointmentsAPI.getAppointments(params);
-    console.log('API getAppointments response:', response);
-    return response;
+    return AppointmentsAPI.getAppointments(params);
   },
-  
+
   async createAppointment(appointmentData) {
     return AppointmentsAPI.createAppointment(appointmentData);
   },
-  
+
   async updateAppointmentStatus(id, status, notes = '') {
     return AppointmentsAPI.updateAppointmentStatus(id, status, notes);
   },
-  
+
   async deleteAppointment(id) {
     return AppointmentsAPI.deleteAppointment(id);
   },
-  
+
   async cancelAppointment(id, cancelReason = '') {
     return AppointmentsAPI.cancelAppointment(id, cancelReason);
   }
