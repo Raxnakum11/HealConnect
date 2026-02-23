@@ -139,20 +139,17 @@ const doctorLogin = asyncHandler(async (req, res) => {
 const sendOtp = asyncHandler(async (req, res) => {
   const { mobile } = req.body;
 
-  // Check if a Patient record exists with this mobile AND has a doctorId (doctor-created)
-  const patient = await Patient.findOne({ mobile, isActive: true });
+  // Check if a doctor-created active Patient record exists for this mobile
+  const patient = await Patient.findOne({
+    mobile,
+    isActive: true,
+    doctorId: { $exists: true, $ne: null }
+  }).sort({ updatedAt: -1, createdAt: -1 });
 
   if (!patient) {
     return res.status(404).json({
       success: false,
       message: 'No patient record found. Only patients registered by the doctor can log in.'
-    });
-  }
-
-  if (!patient.doctorId) {
-    return res.status(403).json({
-      success: false,
-      message: 'Your case has not been created by a doctor. Please contact your doctor.'
     });
   }
 
@@ -167,11 +164,18 @@ const sendOtp = asyncHandler(async (req, res) => {
       email: patient.email || undefined,
       role: 'patient'
     });
-
-    // Link user to patient record
-    patient.userId = user._id;
-    await patient.save();
   }
+
+  // Always ensure active doctor-created patient records with same mobile are linked to this user
+  await Patient.updateMany(
+    {
+      mobile,
+      isActive: true,
+      doctorId: { $exists: true, $ne: null },
+      $or: [{ userId: { $exists: false } }, { userId: null }, { userId: { $ne: user._id } }]
+    },
+    { $set: { userId: user._id } }
+  );
 
   // Generate OTP
   const otp = generateOTP();
@@ -185,13 +189,20 @@ const sendOtp = asyncHandler(async (req, res) => {
   // Log OTP to console (in production, send via SMS)
   console.log(`\n📱 OTP for ${mobile}: ${otp} (expires in 5 minutes)\n`);
 
+  const responseData = {
+    mobile,
+    otpExpiry: otpExpiry.toISOString()
+  };
+
+  // Development convenience: return OTP in API response when not in production
+  if (process.env.NODE_ENV !== 'production') {
+    responseData.devOtp = otp;
+  }
+
   res.status(200).json({
     success: true,
     message: 'OTP sent successfully to your mobile number',
-    data: {
-      mobile,
-      otpExpiry: otpExpiry.toISOString()
-    }
+    data: responseData
   });
 });
 
@@ -237,6 +248,17 @@ const verifyOtp = asyncHandler(async (req, res) => {
       message: 'Invalid OTP. Please try again.'
     });
   }
+
+  // Ensure patient records are linked for profile access after successful OTP verification
+  await Patient.updateMany(
+    {
+      mobile,
+      isActive: true,
+      doctorId: { $exists: true, $ne: null },
+      $or: [{ userId: { $exists: false } }, { userId: null }, { userId: { $ne: user._id } }]
+    },
+    { $set: { userId: user._id } }
+  );
 
   // OTP is valid — clear it and login
   user.otp = null;

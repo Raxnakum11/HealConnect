@@ -18,7 +18,7 @@ interface AuthContextType {
   loading: boolean;
   doctorLogin: (email: string, password: string) => Promise<void>;
   doctorRegister: (data: DoctorRegisterData) => Promise<void>;
-  sendOtp: (mobile: string) => Promise<void>;
+  sendOtp: (mobile: string) => Promise<any>;
   verifyOtp: (mobile: string, otp: string) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (profileData: Partial<User>) => Promise<void>;
@@ -105,6 +105,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!response.success) {
         throw new Error(response.message || 'Failed to send OTP');
       }
+
+      return response;
     } catch (error: any) {
       if (error.message?.includes('Failed to fetch') || error.message?.includes('Network error')) {
         throw new Error('Unable to connect to server. Please check if the server is running.');

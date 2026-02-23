@@ -366,6 +366,11 @@ export class CampsAPI {
     const response = await HttpClient.get('/camps/stats');
     return response.data || response;
   }
+
+  static async registerForCamp(campId) {
+    const response = await HttpClient.post(`/camps/${campId}/register`, {});
+    return response.data || response;
+  }
 }
 
 // ============================================================

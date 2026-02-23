@@ -272,7 +272,23 @@ export default function PatientPortal() {
         console.log('🔥 Camps API response:', campsData);
         
         if (Array.isArray(campsData) && campsData.length > 0) {
-          setCamps(campsData);
+          const normalizedCamps: Camp[] = campsData.map((camp: any) => ({
+            id: camp._id || camp.id,
+            title: camp.title || camp.name || 'Health Camp',
+            location: camp.location || 'Location not specified',
+            date: camp.date,
+            time: camp.time || '10:00 AM',
+            organizer: camp.organizer || 'Dr. Himanshu Sonagara',
+            description: camp.description || camp.notes || 'Health camp details available at clinic.',
+            type: camp.type || 'camp',
+            capacity: camp.expectedPatients || camp.capacity || 0,
+            registered: camp.actualPatients || camp.registered || 0,
+            status: camp.status === 'scheduled'
+              ? 'upcoming'
+              : (camp.status === 'cancelled' ? 'completed' : (camp.status || 'upcoming'))
+          }));
+
+          setCamps(normalizedCamps);
         } else {
           console.log('🔥 No camps found');
           setCamps([]);
@@ -574,33 +590,38 @@ export default function PatientPortal() {
   };
 
   // Register for camp function
-  const registerForCamp = (campId: string) => {
-    const updatedCamps = camps.map(camp => 
-      camp.id === campId 
-        ? { ...camp, registered: camp.registered + 1 }
-        : camp
-    );
-    setCamps(updatedCamps);
-    localStorage.setItem('doctor_camps', JSON.stringify(updatedCamps));
+  const registerForCamp = async (campId: string) => {
+    try {
+      const camp = camps.find(c => c.id === campId);
+      await api.camps.registerForCamp(campId);
 
-    const camp = camps.find(c => c.id === campId);
-    if (camp) {
-      const newAlert: Alert = {
-        id: `camp_registration_${Date.now()}`,
-        type: 'camp',
-        title: 'Camp Registration Successful',
-        message: `You have successfully registered for ${camp.title} at ${camp.location}`,
-        time: new Date().toLocaleTimeString(),
-        read: false,
-        priority: 'high'
-      };
-      const updatedAlerts = [...alerts, newAlert];
-      setAlerts(updatedAlerts);
-      localStorage.setItem('patient_alerts', JSON.stringify(updatedAlerts));
+      await loadData();
 
+      if (camp) {
+        const newAlert: Alert = {
+          id: `camp_registration_${Date.now()}`,
+          type: 'camp',
+          title: 'Camp Registration Successful',
+          message: `You have successfully registered for ${camp.title} at ${camp.location}`,
+          time: new Date().toLocaleTimeString(),
+          read: false,
+          priority: 'high'
+        };
+
+        const updatedAlerts = [...alerts, newAlert];
+        setAlerts(updatedAlerts);
+        localStorage.setItem('patient_alerts', JSON.stringify(updatedAlerts));
+
+        toast({
+          title: "Registration Successful",
+          description: `You have been registered for ${camp.title}`,
+        });
+      }
+    } catch (error: any) {
       toast({
-        title: "Registration Successful",
-        description: `You have been registered for ${camp.title}`,
+        title: "Registration Failed",
+        description: error.message || 'Unable to register for camp',
+        variant: 'destructive'
       });
     }
   };

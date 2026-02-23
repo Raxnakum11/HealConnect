@@ -111,9 +111,16 @@ export function LoginSignupDialog({ open, onOpenChange }: LoginSignupDialogProps
 
     setIsLoading(true);
     try {
-      await sendOtp(patientMobile);
+      const response = await sendOtp(patientMobile);
       setOtpSent(true);
-      toast({ title: "OTP Sent!", description: "Please check your mobile for the OTP code" });
+
+      const devOtp = response?.data?.devOtp;
+      toast({
+        title: "OTP Sent!",
+        description: devOtp
+          ? `Use OTP: ${devOtp}`
+          : "Please check your mobile for the OTP code"
+      });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {

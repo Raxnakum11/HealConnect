@@ -483,7 +483,7 @@ const updatePatientEmail = asyncHandler(async (req, res) => {
 // @access  Private
 const getPatientVisitHistory = asyncHandler(async (req, res) => {
   const patient = await Patient.findById(req.params.id)
-    .populate('visitHistory.doctorId', 'firstName lastName specialization')
+    .populate('visitHistory.doctorId', 'name')
     .populate('visitHistory.prescribedMedicines.medicineId', 'name size unit')
     .populate('visitHistory.campId', 'name location date');
 
@@ -512,10 +512,24 @@ const getPatientVisitHistory = asyncHandler(async (req, res) => {
   // Sort visit history by date (newest first)
   const sortedVisitHistory = patient.visitHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
 
+  const normalizedVisitHistory = sortedVisitHistory.map((visit) => {
+    const visitObj = typeof visit.toObject === 'function' ? visit.toObject() : visit;
+    const doctorNameFromRef =
+      visitObj?.doctorId && typeof visitObj.doctorId === 'object' ? visitObj.doctorId.name : '';
+    const rawDoctorName = (visitObj?.doctorName || '').trim();
+    const isInvalidDoctorName =
+      !rawDoctorName || /^undefined(\s+undefined)?$/i.test(rawDoctorName);
+
+    return {
+      ...visitObj,
+      doctorName: doctorNameFromRef || (isInvalidDoctorName ? 'Dr. Himanshu Sonagara' : rawDoctorName)
+    };
+  });
+
   res.status(200).json({
     success: true,
     data: {
-      visitHistory: sortedVisitHistory,
+      visitHistory: normalizedVisitHistory,
       patientInfo: {
         id: patient._id,
         name: patient.name,

@@ -452,38 +452,6 @@ export function DoctorDashboard() {
     }
   };
 
-  // Assign random patients to camps for demonstration
-  const assignPatientsToRandomCamps = () => {
-    if (camps.length > 0 && patients.length > 0) {
-      const updatedCamps = camps.map((camp, index) => {
-        // Assign 2-4 random patients to each camp
-        const numPatients = Math.floor(Math.random() * 3) + 2; // 2-4 patients
-        const assignedPatients = [];
-        
-        for (let i = 0; i < Math.min(numPatients, patients.length); i++) {
-          const randomPatient = patients[Math.floor(Math.random() * patients.length)];
-          if (!assignedPatients.includes(randomPatient.id)) {
-            assignedPatients.push(randomPatient.id);
-          }
-        }
-        
-        return {
-          ...camp,
-          patients: assignedPatients
-        };
-      });
-      
-      setCamps(updatedCamps);
-    }
-  };
-
-  // Call this after camps and patients are loaded
-  useEffect(() => {
-    if (camps.length > 0 && patients.length > 0 && !camps.some(camp => camp.patients && camp.patients.length > 0)) {
-      assignPatientsToRandomCamps();
-    }
-  }, [camps.length, patients.length]);
-
   // Computed values
   const expiringMedicines = medicines.filter(medicine => {
     const expiryDate = new Date(medicine.expiryDate);

@@ -112,47 +112,55 @@ export default function PatientHistoryDialog({
                 {loading ? (
                   <p className="text-center py-8">Loading visit history...</p>
                 ) : visitHistory.length > 0 ? (
-                  visitHistory.map((visit) => (
-                    <Card key={visit._id} className="p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-medium">Visit - {formatDate(visit.date)}</h4>
-                        {visit.nextVisitDate && (
-                          <Badge variant="outline">Next: {formatDate(visit.nextVisitDate)}</Badge>
-                        )}
-                      </div>
-                      <div className="space-y-3 text-sm">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div><strong>Doctor:</strong> {visit.doctorName}</div>
-                          <div><strong>Symptoms:</strong> {visit.symptoms}</div>
-                          <div><strong>Diagnosis:</strong> {visit.diagnosis}</div>
-                          {visit.instructions && (
-                            <div><strong>Instructions:</strong> {visit.instructions}</div>
+                  visitHistory.map((visit) => {
+                    const normalizedDoctorName = (visit.doctorName || '').trim();
+                    const displayDoctorName =
+                      normalizedDoctorName && !/^undefined(\s+undefined)?$/i.test(normalizedDoctorName)
+                        ? normalizedDoctorName
+                        : 'Dr. Himanshu Sonagara';
+
+                    return (
+                      <Card key={visit._id} className="p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-medium">Visit - {formatDate(visit.date)}</h4>
+                          {visit.nextVisitDate && (
+                            <Badge variant="outline">Next: {formatDate(visit.nextVisitDate)}</Badge>
                           )}
                         </div>
-                        
-                        {visit.prescribedMedicines && visit.prescribedMedicines.length > 0 && (
-                          <div>
-                            <strong>Prescribed Medicines:</strong>
-                            <div className="mt-2 space-y-2">
-                              {visit.prescribedMedicines.map((medicine, index) => (
-                                <div key={index} className="bg-gray-50 p-2 rounded text-xs">
-                                  <span className="font-medium">{medicine.medicineName}</span>
-                                  {medicine.dosage && <span> - {medicine.dosage}</span>}
-                                  {medicine.frequency && <span>, {medicine.frequency}</span>}
-                                  {medicine.duration && <span> for {medicine.duration}</span>}
-                                  {medicine.quantityGiven && <span> (Qty: {medicine.quantityGiven})</span>}
-                                </div>
-                              ))}
-                            </div>
+                        <div className="space-y-3 text-sm">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><strong>Doctor:</strong> {displayDoctorName}</div>
+                            <div><strong>Symptoms:</strong> {visit.symptoms}</div>
+                            <div><strong>Diagnosis:</strong> {visit.diagnosis}</div>
+                            {visit.instructions && (
+                              <div><strong>Instructions:</strong> {visit.instructions}</div>
+                            )}
                           </div>
-                        )}
-                        
-                        {visit.notes && (
-                          <div><strong>Notes:</strong> {visit.notes}</div>
-                        )}
-                      </div>
-                    </Card>
-                  ))
+
+                          {visit.prescribedMedicines && visit.prescribedMedicines.length > 0 && (
+                            <div>
+                              <strong>Prescribed Medicines:</strong>
+                              <div className="mt-2 space-y-2">
+                                {visit.prescribedMedicines.map((medicine, index) => (
+                                  <div key={index} className="bg-gray-50 p-2 rounded text-xs">
+                                    <span className="font-medium">{medicine.medicineName}</span>
+                                    {medicine.dosage && <span> - {medicine.dosage}</span>}
+                                    {medicine.frequency && <span>, {medicine.frequency}</span>}
+                                    {medicine.duration && <span> for {medicine.duration}</span>}
+                                    {medicine.quantityGiven && <span> (Qty: {medicine.quantityGiven})</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {visit.notes && (
+                            <div><strong>Notes:</strong> {visit.notes}</div>
+                          )}
+                        </div>
+                      </Card>
+                    );
+                  })
                 ) : (
                   <p className="text-muted-foreground text-center py-8">No visit history available</p>
                 )}

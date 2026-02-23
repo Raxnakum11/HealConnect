@@ -61,10 +61,21 @@ const CampPatientsDialog: React.FC<CampPatientsDialogProps> = ({
     setShowMedicalHistory(true);
   };
 
-  // Get registered patients for this camp
-  const registeredPatients = camp.patients 
-    ? allPatients.filter(patient => camp.patients!.includes(patient.id))
-    : camp.registeredPatients || [];
+  const normalizeCampId = (value: any): string => {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'object') {
+      return value.id || value._id || '';
+    }
+    return '';
+  };
+
+  // Get genuinely registered camp patients only
+  const registeredPatients = allPatients.filter((patient) => {
+    const patientCampId = normalizeCampId(patient.campId);
+    const currentCampId = normalizeCampId(camp.id);
+    return patient.type === 'camp' && patientCampId && currentCampId && patientCampId === currentCampId;
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {

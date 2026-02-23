@@ -8,9 +8,10 @@ const {
   completeCamp,
   addMedicineUsage,
   getUpcomingCamps,
-  getCampStats
+  getCampStats,
+  registerForCamp
 } = require('../controllers/campController');
-const { authenticateToken, requireDoctor } = require('../middleware/auth');
+const { authenticateToken, requireDoctor, requirePatient } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/errorHandler');
 const {
   createCampValidation,
@@ -22,22 +23,22 @@ const {
 
 const router = express.Router();
 
-// All routes require authentication and doctor role
-router.use(authenticateToken, requireDoctor);
+// All routes require authentication
+router.use(authenticateToken);
 
 // @route   GET /api/camps/stats
 // @desc    Get camp statistics for doctor
 // @access  Private (Doctor only)
-router.get('/stats', getCampStats);
+router.get('/stats', requireDoctor, getCampStats);
 
 // @route   GET /api/camps/upcoming
 // @desc    Get upcoming camps
-// @access  Private (Doctor only)
+// @access  Private (Doctor/Patient)
 router.get('/upcoming', getUpcomingCamps);
 
 // @route   GET /api/camps
-// @desc    Get all camps for a doctor
-// @access  Private (Doctor only)
+// @desc    Get camps (doctor sees own camps, patient sees active camps)
+// @access  Private (Doctor/Patient)
 router.get(
   '/',
   paginationValidation,
@@ -47,7 +48,7 @@ router.get(
 
 // @route   GET /api/camps/:id
 // @desc    Get single camp
-// @access  Private (Doctor only)
+// @access  Private (Doctor/Patient)
 router.get(
   '/:id',
   mongoIdValidation,
@@ -55,11 +56,23 @@ router.get(
   getCamp
 );
 
+// @route   POST /api/camps/:id/register
+// @desc    Register logged-in patient for a camp
+// @access  Private (Patient only)
+router.post(
+  '/:id/register',
+  requirePatient,
+  mongoIdValidation,
+  handleValidationErrors,
+  registerForCamp
+);
+
 // @route   POST /api/camps
 // @desc    Create new camp
 // @access  Private (Doctor only)
 router.post(
   '/',
+  requireDoctor,
   createCampValidation,
   handleValidationErrors,
   createCamp
@@ -70,6 +83,7 @@ router.post(
 // @access  Private (Doctor only)
 router.put(
   '/:id',
+  requireDoctor,
   mongoIdValidation,
   updateCampValidation,
   handleValidationErrors,
@@ -81,6 +95,7 @@ router.put(
 // @access  Private (Doctor only)
 router.delete(
   '/:id',
+  requireDoctor,
   mongoIdValidation,
   handleValidationErrors,
   deleteCamp
@@ -91,6 +106,7 @@ router.delete(
 // @access  Private (Doctor only)
 router.patch(
   '/:id/complete',
+  requireDoctor,
   mongoIdValidation,
   handleValidationErrors,
   completeCamp
@@ -101,6 +117,7 @@ router.patch(
 // @access  Private (Doctor only)
 router.post(
   '/:id/medicines',
+  requireDoctor,
   mongoIdValidation,
   addMedicineUsageValidation,
   handleValidationErrors,

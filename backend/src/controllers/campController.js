@@ -1,9 +1,10 @@
 const Camp = require('../models/Camp');
+const Patient = require('../models/Patient');
 const { asyncHandler } = require('../middleware/errorHandler');
 
-// @desc    Get all camps for a doctor
+// @desc    Get camps (doctor sees own camps, patient sees active camps)
 // @route   GET /api/camps
-// @access  Private (Doctor only)
+// @access  Private (Doctor/Patient)
 const getCamps = asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
@@ -15,7 +16,11 @@ const getCamps = asyncHandler(async (req, res) => {
   const upcoming = req.query.upcoming; // 'true' to get upcoming camps only
   
   // Build query
-  const query = { doctorId: req.user.id, isActive: true };
+  const query = { isActive: true };
+
+  if (req.user.role === 'doctor') {
+    query.doctorId = req.user.id;
+  }
   
   // Add search functionality
   if (search) {
@@ -68,7 +73,7 @@ const getCamps = asyncHandler(async (req, res) => {
 
 // @desc    Get single camp
 // @route   GET /api/camps/:id
-// @access  Private (Doctor only)
+// @access  Private (Doctor/Patient)
 const getCamp = asyncHandler(async (req, res) => {
   const camp = await Camp.findById(req.params.id)
     .populate('doctorId', 'firstName lastName specialization')
@@ -81,11 +86,18 @@ const getCamp = asyncHandler(async (req, res) => {
     });
   }
   
-  // Check if user owns this camp
-  if (camp.doctorId._id.toString() !== req.user.id) {
+  // Doctors can only access their own camps. Patients can view active camps.
+  if (req.user.role === 'doctor' && camp.doctorId._id.toString() !== req.user.id) {
     return res.status(403).json({
       success: false,
       message: 'Access denied'
+    });
+  }
+
+  if (req.user.role === 'patient' && !camp.isActive) {
+    return res.status(404).json({
+      success: false,
+      message: 'Camp not found'
     });
   }
   
@@ -306,9 +318,20 @@ const addMedicineUsage = asyncHandler(async (req, res) => {
 
 // @desc    Get upcoming camps
 // @route   GET /api/camps/upcoming
-// @access  Private (Doctor only)
+// @access  Private (Doctor/Patient)
 const getUpcomingCamps = asyncHandler(async (req, res) => {
-  const camps = await Camp.getUpcomingCamps(req.user.id);
+  let camps;
+
+  if (req.user.role === 'doctor') {
+    camps = await Camp.getUpcomingCamps(req.user.id);
+  } else {
+    const today = new Date();
+    camps = await Camp.find({
+      isActive: true,
+      date: { $gte: today },
+      status: { $in: ['scheduled', 'ongoing'] }
+    }).sort({ date: 1 });
+  }
   
   res.status(200).json({
     success: true,
@@ -378,6 +401,84 @@ const getCampStats = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Register current patient for a camp
+// @route   POST /api/camps/:id/register
+// @access  Private (Patient only)
+const registerForCamp = asyncHandler(async (req, res) => {
+  const camp = await Camp.findById(req.params.id);
+
+  if (!camp || !camp.isActive) {
+    return res.status(404).json({
+      success: false,
+      message: 'Camp not found'
+    });
+  }
+
+  const alreadyRegistered = await Patient.findOne({
+    userId: req.user.id,
+    type: 'camp',
+    campId: camp._id,
+    isActive: true
+  });
+
+  if (alreadyRegistered) {
+    return res.status(200).json({
+      success: true,
+      message: 'You are already registered for this camp',
+      data: { patient: alreadyRegistered }
+    });
+  }
+
+  const basePatient = await Patient.findOne({
+    userId: req.user.id,
+    isActive: true
+  }).sort({ updatedAt: -1, createdAt: -1 });
+
+  if (!basePatient) {
+    return res.status(403).json({
+      success: false,
+      message: 'Patient profile not found. Please contact doctor first.'
+    });
+  }
+
+  let patientId;
+  let counter = (await Patient.countDocuments({ doctorId: camp.doctorId })) + 1;
+
+  while (!patientId) {
+    const candidate = `PAT${String(counter).padStart(4, '0')}`;
+    const exists = await Patient.findOne({ patientId: candidate });
+    if (!exists) {
+      patientId = candidate;
+    } else {
+      counter += 1;
+    }
+  }
+
+  const registeredPatient = await Patient.create({
+    patientId,
+    name: basePatient.name,
+    mobile: basePatient.mobile,
+    email: basePatient.email,
+    userId: req.user.id,
+    age: basePatient.age,
+    gender: basePatient.gender,
+    address: basePatient.address,
+    medicalHistory: basePatient.medicalHistory,
+    type: 'camp',
+    campId: camp._id,
+    doctorId: camp.doctorId
+  });
+
+  camp.actualPatients = (camp.actualPatients || 0) + 1;
+  await camp.save();
+
+  return res.status(201).json({
+    success: true,
+    message: 'Camp registration successful',
+    data: { patient: registeredPatient }
+  });
+});
+
 module.exports = {
   getCamps,
   getCamp,
@@ -387,5 +488,6 @@ module.exports = {
   completeCamp,
   addMedicineUsage,
   getUpcomingCamps,
-  getCampStats
+  getCampStats,
+  registerForCamp
 };
