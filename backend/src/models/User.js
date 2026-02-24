@@ -17,15 +17,17 @@ const userSchema = new mongoose.Schema({
   },
   email: {
     type: String,
-    required: [true, 'Email is required'],
-    unique: true,
     trim: true,
     lowercase: true,
+    sparse: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
   },
   password: {
     type: String,
-    required: [true, 'Password is required'],
+    // Only required for doctor role
+    required: function () {
+      return this.role === 'doctor';
+    },
     minlength: [6, 'Password must be at least 6 characters long']
   },
   role: {
@@ -33,12 +35,14 @@ const userSchema = new mongoose.Schema({
     enum: ['doctor', 'patient'],
     required: [true, 'Role is required']
   },
-  specialization: {
+  // OTP fields for patient mobile login
+  otp: {
     type: String,
-    enum: ['homeopathy', 'allopathy'],
-    required: function() {
-      return this.role === 'doctor';
-    }
+    default: null
+  },
+  otpExpiry: {
+    type: Date,
+    default: null
   },
   isActive: {
     type: Boolean,
@@ -59,9 +63,9 @@ userSchema.index({ mobile: 1 });
 userSchema.index({ role: 1 });
 
 // Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password') || !this.password) return next();
+
   try {
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
@@ -72,14 +76,17 @@ userSchema.pre('save', async function(next) {
 });
 
 // Compare password method
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  if (!this.password) return false;
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Remove password from JSON output
-userSchema.methods.toJSON = function() {
+// Remove password and OTP from JSON output
+userSchema.methods.toJSON = function () {
   const userObject = this.toObject();
   delete userObject.password;
+  delete userObject.otp;
+  delete userObject.otpExpiry;
   return userObject;
 };
 

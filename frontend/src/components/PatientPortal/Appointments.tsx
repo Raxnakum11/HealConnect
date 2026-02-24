@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Calendar as CalendarIcon, Clock, Plus, Trash2, CheckCircle, X } from 'lucide-react';
+import { formatDate, formatTime } from '@/lib/utils';
 
 interface Appointment {
   id: string;
@@ -92,11 +93,11 @@ export default function Appointments({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div className="flex items-center gap-2">
                       <CalendarIcon className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                      <span className="text-sm">{appointment.date}</span>
+                      <span className="text-sm">{formatDate(appointment.date)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                      <span className="text-sm">{appointment.time}</span>
+                      <span className="text-sm">{formatTime(appointment.time)}</span>
                       {appointment.slotNumber && (
                         <Badge variant="outline" className="text-xs">Slot {appointment.slotNumber}</Badge>
                       )}

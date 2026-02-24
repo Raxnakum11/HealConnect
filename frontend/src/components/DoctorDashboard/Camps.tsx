@@ -2,7 +2,8 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Eye, Trash2, CalendarIcon, MapPin } from 'lucide-react';
+import { Plus, Eye, Trash2, CalendarIcon, MapPin, Phone } from 'lucide-react';
+import { formatDate } from '@/lib/utils';
 
 interface Camp {
   id: string;
@@ -18,16 +19,26 @@ interface Camp {
 interface CampsProps {
   camps: Camp[];
   setShowCampDialog: (show: boolean) => void;
-  removeCamp: (id: string) => void;
-  setSelectedCamp: (camp: Camp) => void;
+  removeCamp: (id: string) => Promise<void>;
+  viewCampPatients: (camp: Camp) => void;
 }
 
 const Camps: React.FC<CampsProps> = ({
   camps,
   setShowCampDialog,
   removeCamp,
-  setSelectedCamp
+  viewCampPatients
 }) => {
+  const handleDeleteCamp = async (camp: Camp) => {
+    const isConfirmed = window.confirm(
+      `Are you sure you want to delete "${camp.title}"?\n\nThis action cannot be undone and will permanently remove the camp from the database.`
+    );
+
+    if (isConfirmed) {
+      await removeCamp(camp.id);
+    }
+  };
+
   return (
     <>
       <div className="flex justify-between items-center">
@@ -41,17 +52,28 @@ const Camps: React.FC<CampsProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {camps.map((camp) => (
           <Card key={camp.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-lg">{camp.title}</CardTitle>
-                  <p className="text-sm text-muted-foreground">{camp.location}</p>
+            <CardHeader className="pb-3">
+              <div className="flex justify-between items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="text-lg font-semibold text-foreground mb-1 truncate">
+                    {camp.title || 'Untitled Camp'}
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground truncate">{camp.location}</p>
+                  </div>
                 </div>
-                <div className="flex gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => setSelectedCamp(camp)}>
+                <div className="flex flex-col gap-1 flex-shrink-0">
+                  <Button size="sm" variant="ghost" onClick={() => viewCampPatients(camp)} className="h-8 w-8 p-0" title="View Registered Patients">
                     <Eye className="w-4 h-4" />
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => removeCamp(camp.id)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleDeleteCamp(camp)}
+                    className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                    title="Delete Camp"
+                  >
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
@@ -61,17 +83,17 @@ const Camps: React.FC<CampsProps> = ({
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <CalendarIcon className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm">{camp.date}</span>
+                  <span className="text-sm">{formatDate(camp.date)}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-muted-foreground" />
+                  <Phone className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm">{camp.contactInfo}</span>
                 </div>
                 <p className="text-sm text-muted-foreground">{camp.description}</p>
                 <div className="flex justify-between items-center">
                   <Badge variant={
                     camp.status === 'completed' ? 'default' :
-                    camp.status === 'ongoing' ? 'destructive' : 'secondary'
+                      camp.status === 'ongoing' ? 'destructive' : 'secondary'
                   }>
                     {camp.status}
                   </Badge>

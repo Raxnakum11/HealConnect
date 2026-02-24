@@ -24,14 +24,13 @@ if (!process.env.MONGODB_URI) {
 if (!process.env.MONGODB_URI) {
   console.log('Setting manual fallback for environment variables');
   process.env.MONGODB_URI = 'mongodb://localhost:27017/healconnect_db';
-  process.env.JWT_SECRET = 'dev-secret-change-in-production-minimum-32-chars';
-  process.env.PORT = '9000'; // Use port 9000 to avoid conflicts
+  process.env.JWT_SECRET = 'healconnect_super_secret_jwt_key_2025';
+  process.env.PORT = '5000'; // Use port 5000 to avoid conflicts
   process.env.NODE_ENV = 'development';
   process.env.CORS_ORIGIN = 'http://localhost:8080';
-  // Email configuration fallback - THESE ARE PLACEHOLDER VALUES
-  // You MUST replace these with your actual credentials in .env file
-  process.env.EMAIL_USER = 'your-email@gmail.com';
-  process.env.EMAIL_PASS = 'your-app-password-here';
+  // Email configuration fallback
+  process.env.EMAIL_USER = 'abc592052@gmail.com';
+  process.env.EMAIL_PASS = 'kpqo ettk cfgo zcrm';
 }
 
 console.log('Final MONGODB_URI:', process.env.MONGODB_URI);
@@ -117,6 +116,15 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('combined'));
 }
 
+// Add request logging for debugging
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+  }
+  next();
+});
+
 // Health check route
 app.get('/health', (req, res) => {
   res.status(200).json({
@@ -148,9 +156,7 @@ app.get('/', (req, res) => {
       patients: '/api/patients',
       medicines: '/api/medicines',
       camps: '/api/camps',
-      prescriptions: '/api/prescriptions',
-      notifications: '/api/notifications',
-      appointments: '/api/appointments'
+      prescriptions: '/api/prescriptions'
     }
   });
 });
@@ -170,18 +176,17 @@ const server = app.listen(PORT, () => {
 ║                    SGP Homeopathy Management System                    ║
 ║                              Backend API                               ║
 ╠════════════════════════════════════════════════════════════════════════╣
-║  Server is running on port ${PORT}                                           ║
-║  Environment: ${process.env.NODE_ENV || 'development'}                                     ║
-║  Database: ${process.env.MONGODB_URI ? 'Connected' : 'Not configured'}                                        ║
+║  Server is running on port ${PORT}                                     ║
+║  Environment: ${process.env.NODE_ENV || 'development'}                 ║
+║  Database: ${process.env.MONGODB_URI ? 'Connected' : 'Not configured'} ║
 ║                                                                        ║
 ║  API Endpoints:                                                        ║
-║  • Health Check: http://localhost:${PORT}/health                        ║
-║  • Authentication: http://localhost:${PORT}/api/auth                     ║
-║  • Patients: http://localhost:${PORT}/api/patients                      ║
-║  • Medicines: http://localhost:${PORT}/api/medicines                    ║
+║  • Health Check: http://localhost:${PORT}/health                       ║
+║  • Authentication: http://localhost:${PORT}/api/auth                   ║
+║  • Patients: http://localhost:${PORT}/api/patients                     ║
+║  • Medicines: http://localhost:${PORT}/api/medicines                   ║
 ║  • Camps: http://localhost:${PORT}/api/camps                           ║
 ║  • Prescriptions: http://localhost:${PORT}/api/prescriptions           ║
-║  • Appointments: http://localhost:${PORT}/api/appointments             ║
 ╚════════════════════════════════════════════════════════════════════════╝
   `);
 });
@@ -210,4 +215,3 @@ process.on('SIGTERM', () => {
 });
 
 module.exports = app;
-

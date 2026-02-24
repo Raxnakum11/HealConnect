@@ -7,7 +7,8 @@ const {
   deletePrescription,
   completePrescription,
   getPatientPrescriptions,
-  getPrescriptionStats
+  getPrescriptionStats,
+  getMyPrescriptions
 } = require('../controllers/prescriptionController');
 const { authenticateToken, requireDoctor } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/errorHandler');
@@ -22,10 +23,20 @@ const router = express.Router();
 // All routes require authentication
 router.use(authenticateToken);
 
+// Test route for debugging (after auth)
+router.get('/test', (req, res) => {
+  res.json({ success: true, message: 'Prescription routes working!' });
+});
+
 // @route   GET /api/prescriptions/stats
 // @desc    Get prescription statistics for doctor
 // @access  Private (Doctor only)
 router.get('/stats', requireDoctor, getPrescriptionStats);
+
+// @route   GET /api/prescriptions/my-prescriptions
+// @desc    Get patient's own prescriptions
+// @access  Private (Patient only)
+router.get('/my-prescriptions', getMyPrescriptions);
 
 // @route   GET /api/prescriptions/patient/:patientId
 // @desc    Get patient's prescription history
@@ -63,9 +74,7 @@ router.get(
 // @access  Private (Doctor only)
 router.post(
   '/',
-  requireDoctor,
-  createPrescriptionValidation,
-  handleValidationErrors,
+  authenticateToken,
   createPrescription
 );
 
@@ -101,5 +110,4 @@ router.patch(
   handleValidationErrors,
   completePrescription
 );
-
 module.exports = router;

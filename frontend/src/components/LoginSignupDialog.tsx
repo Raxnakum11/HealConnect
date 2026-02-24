@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuth, UserRole } from '@/contexts/AuthContext';
-import { Heart, Phone, User, Stethoscope, UserPlus } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Heart, Phone, Stethoscope, User, Mail, Lock, Loader2, KeyRound, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface LoginSignupDialogProps {
@@ -13,170 +12,158 @@ interface LoginSignupDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-
 export function LoginSignupDialog({ open, onOpenChange }: LoginSignupDialogProps) {
-  const [selectedRole, setSelectedRole] = useState<UserRole>('patient');
-  const [mobile, setMobile] = useState('');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [activeTab, setActiveTab] = useState('login');
-  const [specialization] = useState<'homeopathy' | 'allopathy'>('homeopathy');
+  // Doctor state
+  const [doctorEmail, setDoctorEmail] = useState('');
+  const [doctorPassword, setDoctorPassword] = useState('');
+  const [doctorName, setDoctorName] = useState('');
+  const [doctorMobile, setDoctorMobile] = useState('');
+  const [doctorConfirmPassword, setDoctorConfirmPassword] = useState('');
+
+  // Patient OTP state
+  const [patientMobile, setPatientMobile] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+
+  // UI state
+  const [activeTab, setActiveTab] = useState('doctor');
+  const [doctorMode, setDoctorMode] = useState<'login' | 'register'>('login');
   const [isLoading, setIsLoading] = useState(false);
-  const { login, register } = useAuth();
+
+  const { doctorLogin, doctorRegister, sendOtp, verifyOtp } = useAuth();
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent, isSignup: boolean) => {
+  // ============================================================
+  // DOCTOR HANDLERS
+  // ============================================================
+  const handleDoctorLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (isSignup) {
-      // Signup validation
-      if (!mobile || !name || !email || !password) {
-        toast({
-          title: "Error",
-          description: "Please fill in all fields",
-          variant: "destructive"
-        });
-        return;
-      }
 
-      if (password.length < 6) {
-        toast({
-          title: "Error", 
-          description: "Password must be at least 6 characters long",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      if (password !== confirmPassword) {
-        toast({
-          title: "Error",
-          description: "Passwords do not match",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
-      if (!emailRegex.test(email)) {
-        toast({
-          title: "Error",
-          description: "Please enter a valid email address",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      const mobileRegex = /^\d{10,12}$/;
-      if (!mobileRegex.test(mobile)) {
-        toast({
-          title: "Error",
-          description: "Please enter a valid mobile number (10-12 digits)",
-          variant: "destructive"
-        });
-        return;
-      }
-
-    } else {
-      // Login validation - support both email/password and mobile/name
-      if (email && password) {
-        // Email login
-        const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
-        if (!emailRegex.test(email)) {
-          toast({
-            title: "Error",
-            description: "Please enter a valid email address",
-            variant: "destructive"
-          });
-          return;
-        }
-      } else if (mobile) {
-        // Mobile login (backward compatibility)
-        if (!name) {
-          toast({
-            title: "Error",
-            description: "Please enter your name for mobile login",
-            variant: "destructive"
-          });
-          return;
-        }
-      } else {
-        toast({
-          title: "Error",
-          description: "Please enter either email/password or mobile/name",
-          variant: "destructive"
-        });
-        return;
-      }
+    if (!doctorEmail || !doctorPassword) {
+      toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
+      return;
     }
 
     setIsLoading(true);
     try {
-      if (isSignup) {
-        // Register new user
-        await register({
-          name,
-          email,
-          mobile,
-          password,
-          role: selectedRole,
-          specialization: selectedRole === 'doctor' ? specialization : undefined
-        });
-        
-        toast({
-          title: "Success",
-          description: "Account created successfully! You are now logged in.",
-        });
-      } else {
-        // Login existing user
-        if (email && password) {
-          // Email/password login
-          await login(email, password, selectedRole, true);
-        } else {
-          // Mobile/name login (backward compatibility)
-          await login(mobile, name, selectedRole, false);
-        }
-
-        toast({
-          title: "Success", 
-          description: "Logged in successfully!",
-        });
-      }
-
-      // Clear form and close dialog
-      setMobile('');
-      setName('');
-      setEmail('');
-      setPassword('');
-      setConfirmPassword('');
+      await doctorLogin(doctorEmail, doctorPassword);
+      toast({ title: "Welcome, Doctor!", description: "Login successful" });
+      resetForm();
       onOpenChange(false);
-
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || (isSignup ? "Registration failed" : "Login failed"),
-        variant: "destructive"
+      toast({ title: "Login Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDoctorRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!doctorName || !doctorEmail || !doctorMobile || !doctorPassword) {
+      toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
+      return;
+    }
+
+    if (doctorPassword.length < 6) {
+      toast({ title: "Error", description: "Password must be at least 6 characters", variant: "destructive" });
+      return;
+    }
+
+    if (doctorPassword !== doctorConfirmPassword) {
+      toast({ title: "Error", description: "Passwords do not match", variant: "destructive" });
+      return;
+    }
+
+    if (!/^\d{10,12}$/.test(doctorMobile)) {
+      toast({ title: "Error", description: "Please enter a valid mobile number (10-12 digits)", variant: "destructive" });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await doctorRegister({
+        name: doctorName,
+        email: doctorEmail,
+        mobile: doctorMobile,
+        password: doctorPassword
       });
+      toast({ title: "Success!", description: "Doctor account created successfully" });
+      resetForm();
+      onOpenChange(false);
+    } catch (error: any) {
+      toast({ title: "Registration Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ============================================================
+  // PATIENT OTP HANDLERS
+  // ============================================================
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!/^\d{10,12}$/.test(patientMobile)) {
+      toast({ title: "Error", description: "Please enter a valid mobile number (10-12 digits)", variant: "destructive" });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await sendOtp(patientMobile);
+      setOtpSent(true);
+
+      const devOtp = response?.data?.devOtp;
+      toast({
+        title: "OTP Sent!",
+        description: devOtp
+          ? `Use OTP: ${devOtp}`
+          : "Please check your mobile for the OTP code"
+      });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!otp || otp.length !== 6) {
+      toast({ title: "Error", description: "Please enter a valid 6-digit OTP", variant: "destructive" });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await verifyOtp(patientMobile, otp);
+      toast({ title: "Welcome!", description: "Login successful" });
+      resetForm();
+      onOpenChange(false);
+    } catch (error: any) {
+      toast({ title: "Verification Failed", description: error.message, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   };
 
   const resetForm = () => {
-    setMobile('');
-    setName('');
-    setEmail('');
-    setPassword('');
-    setConfirmPassword('');
-    setSelectedRole('patient');
-    setActiveTab('login');
+    setDoctorEmail('');
+    setDoctorPassword('');
+    setDoctorName('');
+    setDoctorMobile('');
+    setDoctorConfirmPassword('');
+    setPatientMobile('');
+    setOtp('');
+    setOtpSent(false);
+    setDoctorMode('login');
     setIsLoading(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
       <DialogContent className="max-w-md bg-gradient-card border-0 shadow-medical">
         <DialogHeader className="text-center pb-2">
           <div className="flex justify-center mb-3">
@@ -192,284 +179,237 @@ export function LoginSignupDialog({ open, onOpenChange }: LoginSignupDialogProps
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); resetForm(); }} className="space-y-4">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login">Sign In</TabsTrigger>
-            <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            <TabsTrigger value="doctor" className="flex items-center gap-2">
+              <Stethoscope className="w-4 h-4" />
+              Doctor
+            </TabsTrigger>
+            <TabsTrigger value="patient" className="flex items-center gap-2">
+              <User className="w-4 h-4" />
+              Patient
+            </TabsTrigger>
           </TabsList>
 
-          {/* Login Tab */}
-          <TabsContent value="login" className="space-y-4">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-medical-dark">Welcome Back</h3>
-              <p className="text-sm text-muted-foreground">Sign in to access your healthcare portal</p>
-            </div>
-
-            {/* Role Selection */}
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                type="button"
-                variant={selectedRole === 'patient' ? 'medical' : 'outline'}
-                className="h-12 flex-col gap-1"
-                onClick={() => setSelectedRole('patient')}
-              >
-                <User className="w-4 h-4" />
-                <span className="text-xs">Patient</span>
-              </Button>
-              <Button
-                type="button"
-                variant={selectedRole === 'doctor' ? 'medical' : 'outline'}
-                className="h-12 flex-col gap-1"
-                onClick={() => setSelectedRole('doctor')}
-              >
-                <Stethoscope className="w-4 h-4" />
-                <span className="text-xs">Doctor</span>
-              </Button>
-            </div>
-
-            <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-4">
-              {/* Email/Password Login */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-medical-dark">Email Address</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    type="email"
-                    placeholder="Enter email address"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 h-12"
-                  />
+          {/* ============ DOCTOR TAB ============ */}
+          <TabsContent value="doctor" className="space-y-4">
+            {doctorMode === 'login' ? (
+              <>
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-medical-dark">Doctor Sign In</h3>
+                  <p className="text-sm text-muted-foreground">Login with your email and password</p>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-medical-dark">Password</label>
-                <div className="relative">
-                  <Input
-                    type="password"
-                    placeholder="Enter password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="h-12"
-                  />
+                <form onSubmit={handleDoctorLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-medical-dark">Email Address</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        type="email"
+                        placeholder="Enter email address"
+                        value={doctorEmail}
+                        onChange={(e) => setDoctorEmail(e.target.value)}
+                        className="pl-10 h-12"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-medical-dark">Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        type="password"
+                        placeholder="Enter password"
+                        value={doctorPassword}
+                        onChange={(e) => setDoctorPassword(e.target.value)}
+                        className="pl-10 h-12"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <Button type="submit" variant="medical" className="w-full h-12 text-base font-semibold" disabled={isLoading}>
+                    {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing In...</> : 'Sign In as Doctor'}
+                  </Button>
+                </form>
+
+                <div className="text-center">
+                  <button
+                    type="button"
+                    className="text-sm text-primary hover:underline font-medium"
+                    onClick={() => setDoctorMode('register')}
+                  >
+                    Don't have an account? Register here
+                  </button>
                 </div>
-              </div>
-
-              <div className="text-center text-sm text-muted-foreground">
-                <span>OR</span>
-              </div>
-
-              {/* Mobile Login (Backward Compatibility) */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-medical-dark">Mobile Number (Alternative)</label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    type="tel"
-                    placeholder="Enter mobile number"
-                    value={mobile}
-                    onChange={(e) => setMobile(e.target.value)}
-                    className="pl-10 h-12"
-                  />
-                </div>
-              </div>
-
-              {mobile && !email && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-medical-dark">Name</label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      type="text"
-                      placeholder="Enter your name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="pl-10 h-12"
-                    />
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <button type="button" onClick={() => setDoctorMode('login')} className="text-muted-foreground hover:text-primary">
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <div>
+                    <h3 className="text-lg font-semibold text-medical-dark">Create Doctor Account</h3>
+                    <p className="text-sm text-muted-foreground">Register as the clinic doctor</p>
                   </div>
                 </div>
-              )}
 
-              <Button type="submit" variant="medical" className="w-full h-12 text-base font-semibold" disabled={isLoading}>
-                {isLoading ? 'Signing In...' : `Sign In as ${selectedRole === 'patient' ? 'Patient' : 'Doctor'}`}
-              </Button>
-            </form>
+                <form onSubmit={handleDoctorRegister} className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-medical-dark">Full Name</label>
+                    <Input
+                      type="text"
+                      placeholder="Dr. Full Name"
+                      value={doctorName}
+                      onChange={(e) => setDoctorName(e.target.value)}
+                      className="h-11"
+                      required
+                    />
+                  </div>
 
-            {/* Demo Credentials */}
-            <div className="border-t pt-4">
-              <p className="text-xs text-muted-foreground text-center mb-3">Try Demo Credentials</p>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setMobile('9876543210');
-                    setSelectedRole('patient');
-                  }}
-                  className="text-xs"
-                >
-                  Demo Patient
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setMobile('9999999999');
-                    setSelectedRole('doctor');
-                  }}
-                  className="text-xs"
-                >
-                  Demo Doctor
-                </Button>
-              </div>
-            </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-medical-dark">Email Address</label>
+                    <Input
+                      type="email"
+                      placeholder="doctor@email.com"
+                      value={doctorEmail}
+                      onChange={(e) => setDoctorEmail(e.target.value)}
+                      className="h-11"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-medical-dark">Mobile Number</label>
+                    <Input
+                      type="tel"
+                      placeholder="10-digit mobile number"
+                      value={doctorMobile}
+                      onChange={(e) => setDoctorMobile(e.target.value)}
+                      className="h-11"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-medical-dark">Password</label>
+                    <Input
+                      type="password"
+                      placeholder="Min 6 characters"
+                      value={doctorPassword}
+                      onChange={(e) => setDoctorPassword(e.target.value)}
+                      className="h-11"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-medical-dark">Confirm Password</label>
+                    <Input
+                      type="password"
+                      placeholder="Confirm password"
+                      value={doctorConfirmPassword}
+                      onChange={(e) => setDoctorConfirmPassword(e.target.value)}
+                      className="h-11"
+                      required
+                    />
+                  </div>
+
+                  <Button type="submit" variant="medical" className="w-full h-12 text-base font-semibold" disabled={isLoading}>
+                    {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating Account...</> : 'Create Doctor Account'}
+                  </Button>
+                </form>
+              </>
+            )}
           </TabsContent>
 
-          {/* Signup Tab */}
-          <TabsContent value="signup" className="space-y-4">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-medical-dark">Create Account</h3>
-              <p className="text-sm text-muted-foreground">Join our healthcare portal</p>
-            </div>
-
-            {/* Role Selection */}
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                type="button"
-                variant={selectedRole === 'patient' ? 'medical' : 'outline'}
-                className="h-12 flex-col gap-1"
-                onClick={() => setSelectedRole('patient')}
-              >
-                <UserPlus className="w-4 h-4" />
-                <span className="text-xs">Patient</span>
-              </Button>
-              <Button
-                type="button"
-                variant={selectedRole === 'doctor' ? 'medical' : 'outline'}
-                className="h-12 flex-col gap-1"
-                onClick={() => setSelectedRole('doctor')}
-              >
-                <Stethoscope className="w-4 h-4" />
-                <span className="text-xs">Doctor</span>
-              </Button>
-            </div>
-
-            <form onSubmit={(e) => handleSubmit(e, true)} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-medical-dark">Full Name</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="Enter full name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="pl-10 h-12"
-                    required
-                  />
+          {/* ============ PATIENT TAB ============ */}
+          <TabsContent value="patient" className="space-y-4">
+            {!otpSent ? (
+              <>
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-medical-dark">Patient Login</h3>
+                  <p className="text-sm text-muted-foreground">Enter your mobile number to receive OTP</p>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-medical-dark">Email Address</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    type="email"
-                    placeholder="Enter email address"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 h-12"
-                    required
-                  />
+                <form onSubmit={handleSendOtp} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-medical-dark">Mobile Number</label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        type="tel"
+                        placeholder="Enter your registered mobile number"
+                        value={patientMobile}
+                        onChange={(e) => setPatientMobile(e.target.value)}
+                        className="pl-10 h-12"
+                        maxLength={12}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <Button type="submit" variant="medical" className="w-full h-12 text-base font-semibold" disabled={isLoading}>
+                    {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending OTP...</> : 'Send OTP'}
+                  </Button>
+                </form>
+
+                <div className="text-center p-3 bg-blue-50 rounded-lg">
+                  <p className="text-xs text-muted-foreground">
+                    Only patients whose case has been created by the doctor can log in.
+                  </p>
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-medical-dark">Mobile Number</label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    type="tel"
-                    placeholder="Enter mobile number (10-12 digits)"
-                    value={mobile}
-                    onChange={(e) => setMobile(e.target.value)}
-                    className="pl-10 h-12"
-                    required
-                  />
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <button type="button" onClick={() => { setOtpSent(false); setOtp(''); }} className="text-muted-foreground hover:text-primary">
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <div>
+                    <h3 className="text-lg font-semibold text-medical-dark">Enter OTP</h3>
+                    <p className="text-sm text-muted-foreground">OTP sent to {patientMobile}</p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-medical-dark">Password</label>
-                <Input
-                  type="password"
-                  placeholder="Enter password (min 6 characters)"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-12"
-                  required
-                />
-              </div>
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-medical-dark">Enter 6-digit OTP</label>
+                    <div className="relative">
+                      <KeyRound className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        type="text"
+                        placeholder="Enter 6-digit OTP"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        className="pl-10 h-12 text-center text-lg tracking-widest font-mono"
+                        maxLength={6}
+                        required
+                      />
+                    </div>
+                  </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-medical-dark">Confirm Password</label>
-                <Input
-                  type="password"
-                  placeholder="Confirm password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="h-12"
-                  required
-                />
-              </div>
+                  <Button type="submit" variant="medical" className="w-full h-12 text-base font-semibold" disabled={isLoading}>
+                    {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying...</> : 'Verify & Login'}
+                  </Button>
 
-              <Button type="submit" variant="medical" className="w-full h-12 text-base font-semibold" disabled={isLoading}>
-                {isLoading ? 'Creating Account...' : `Create ${selectedRole === 'patient' ? 'Patient' : 'Doctor'} Account`}
-              </Button>
-            </form>
-
-            {/* Demo Credentials */}
-            <div className="border-t pt-4">
-              <p className="text-xs text-muted-foreground text-center mb-3">Try Demo Credentials</p>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setMobile('9876543210');
-                    setSelectedRole('patient');
-                    setName('Demo Patient');
-                    setEmail('patient@healconnect.demo');
-                    setPassword('demo123');
-                    setConfirmPassword('demo123');
-                  }}
-                  className="text-xs"
-                >
-                  Demo Patient
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setMobile('9999999999');
-                    setSelectedRole('doctor');
-                    setName('Demo Doctor');
-                    setEmail('doctor@healconnect.demo');
-                    setPassword('demo123');
-                    setConfirmPassword('demo123');
-                  }}
-                  className="text-xs"
-                >
-                  Demo Doctor
-                </Button>
-              </div>
-            </div>
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      className="text-sm text-primary hover:underline font-medium"
+                      onClick={handleSendOtp}
+                      disabled={isLoading}
+                    >
+                      Didn't receive OTP? Resend
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
           </TabsContent>
         </Tabs>
       </DialogContent>

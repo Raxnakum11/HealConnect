@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, FileEdit, Trash2 } from 'lucide-react';
+import { formatDate } from '@/lib/utils';
 
 interface Camp {
   id: string;
@@ -22,15 +23,16 @@ interface Patient {
   id: string;
   name: string;
   mobile: string;
+  email?: string;
   age: number;
   gender: string;
   address: string;
   medicalHistory: string;
-  lastVisit: string;
+  lastVisit?: string;
   nextAppointment?: string;
   type: "clinic" | "camp";
   campId?: string;
-  visitHistory: {
+  visitHistory?: {
     id: string;
     date: string;
     symptoms: string;
@@ -38,6 +40,7 @@ interface Patient {
     prescription: string;
     notes: string;
   }[];
+  prescriptions?: any[];
 }
 
 interface PatientsProps {
@@ -52,7 +55,7 @@ interface PatientsProps {
   setSelectedPatient: (patient: Patient) => void;
   setShowPatientHistory: (show: boolean) => void;
   setShowPrescriptionDialog: (show: boolean) => void;
-  removePatient: (id: string) => void;
+  removePatient: (id: string) => Promise<void>;
   setShowPatientDialog: (show: boolean) => void;
 }
 
@@ -71,6 +74,18 @@ const Patients: React.FC<PatientsProps> = ({
   removePatient,
   setShowPatientDialog
 }) => {
+  const handleDeletePatient = async (patientId: string) => {
+    const patient = [...clinicPatients, ...campPatients].find(p => p.id === patientId);
+    const patientName = patient?.name || 'this patient';
+    
+    const isConfirmed = window.confirm(
+      `Are you sure you want to delete "${patientName}"?\n\nThis action cannot be undone and will permanently remove the patient from the database.`
+    );
+    
+    if (isConfirmed) {
+      await removePatient(patientId);
+    }
+  };
   return (
     <>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -117,11 +132,11 @@ const Patients: React.FC<PatientsProps> = ({
                       <h3 className="font-semibold text-sm group-hover:text-primary">{patient.name}</h3>
                       <p className="text-xs text-muted-foreground">ID: {patient.id}</p>
                     </div>
-                    <div className="flex gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => { setSelectedPatient(patient); setShowPrescriptionDialog(true); }}>
+                    <div className="flex flex-col gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => { setSelectedPatient(patient); setShowPrescriptionDialog(true); }} className="h-6 w-6 p-0">
                         <FileEdit className="w-3 h-3" />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => removePatient(patient.id)}>
+                      <Button size="sm" variant="ghost" onClick={() => handleDeletePatient(patient.id)} className="h-6 w-6 p-0">
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
@@ -132,7 +147,7 @@ const Patients: React.FC<PatientsProps> = ({
                       <Badge variant="default" className="text-xs">Clinic</Badge>
                     </div>
                     <p className="text-xs"><strong>Mobile:</strong> {patient.mobile}</p>
-                    <p className="text-xs"><strong>Last Visit:</strong> {patient.lastVisit}</p>
+                    <p className="text-xs"><strong>Last Visit:</strong> {formatDate(patient.lastVisit)}</p>
                     <p className="text-xs"><strong>Visits:</strong> {patient.visitHistory?.length || 0}</p>
                   </div>
                 </CardContent>
@@ -151,11 +166,11 @@ const Patients: React.FC<PatientsProps> = ({
                       <h3 className="font-semibold text-sm group-hover:text-primary">{patient.name}</h3>
                       <p className="text-xs text-muted-foreground">ID: {patient.id}</p>
                     </div>
-                    <div className="flex gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => { setSelectedPatient(patient); setShowPrescriptionDialog(true); }}>
+                    <div className="flex flex-col gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => { setSelectedPatient(patient); setShowPrescriptionDialog(true); }} className="h-6 w-6 p-0">
                         <FileEdit className="w-3 h-3" />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => removePatient(patient.id)}>
+                      <Button size="sm" variant="ghost" onClick={() => handleDeletePatient(patient.id)} className="h-6 w-6 p-0">
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
@@ -166,7 +181,7 @@ const Patients: React.FC<PatientsProps> = ({
                       <Badge variant="secondary" className="text-xs">Camp</Badge>
                     </div>
                     <p className="text-xs"><strong>Mobile:</strong> {patient.mobile}</p>
-                    <p className="text-xs"><strong>Last Visit:</strong> {patient.lastVisit}</p>
+                    <p className="text-xs"><strong>Last Visit:</strong> {formatDate(patient.lastVisit)}</p>
                     <p className="text-xs"><strong>Visits:</strong> {patient.visitHistory?.length || 0}</p>
                     {patient.campId && (
                       <p className="text-xs"><strong>Camp:</strong> {patient.campId}</p>

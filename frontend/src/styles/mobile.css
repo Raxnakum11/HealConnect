@@ -1,0 +1,186 @@
+/* Mobile-first responsive utilities */
+
+/* Improved touch targets for mobile */
+@media (max-width: 768px) {
+  /* Better button touch targets */
+  .mobile-touch-button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Improved dialog sizing */
+  [data-radix-dialog-content] {
+    max-width: 95vw !important;
+    max-height: 90vh !important;
+    margin: 1rem !important;
+  }
+  
+  /* Better table responsiveness */
+  .mobile-table {
+    font-size: 14px;
+  }
+  
+  .mobile-table th,
+  .mobile-table td {
+    padding: 8px 4px;
+  }
+  
+  /* Improved form inputs */
+  input, select, textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  /* Stack cards vertically on mobile */
+  .mobile-stack > * {
+    margin-bottom: 1rem;
+  }
+  
+  /* Improved tabs for mobile */
+  [data-radix-tabs-list] {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  [data-radix-tabs-list]::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Better spacing for mobile */
+  .mobile-spacing {
+    padding: 0.75rem;
+  }
+  
+  /* Improved card layout */
+  .mobile-card {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  /* Better grid for mobile */
+  .mobile-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  /* Responsive text sizes */
+  .mobile-text-responsive {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+  
+  /* Improved navigation */
+  .mobile-nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+  /* Even smaller text on very small screens */
+  .mobile-text-xs {
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+  
+  /* Tighter spacing */
+  .mobile-tight {
+    padding: 0.5rem;
+  }
+  
+  /* Full width buttons on very small screens */
+  .mobile-full-width {
+    width: 100%;
+  }
+}
+
+/* Landscape mobile improvements */
+@media (max-height: 600px) and (orientation: landscape) {
+  /* Reduce header height in landscape */
+  .mobile-landscape-header {
+    height: 3rem;
+  }
+  
+  /* Compact forms in landscape */
+  .mobile-landscape-form {
+    gap: 0.5rem;
+  }
+}
+
+/* High DPI screen improvements */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  /* Sharper borders on high DPI screens */
+  .retina-border {
+    border-width: 0.5px;
+  }
+}
+
+/* Dark mode mobile improvements */
+@media (prefers-color-scheme: dark) {
+  @media (max-width: 768px) {
+    /* Better contrast in dark mode on mobile */
+    .mobile-dark-text {
+      color: rgb(229, 231, 235);
+    }
+    
+    .mobile-dark-bg {
+      background-color: rgb(17, 24, 39);
+    }
+  }
+}
+
+/* Print styles for mobile */
+@media print {
+  /* Hide navigation and non-essential elements when printing */
+  .print-hide {
+    display: none !important;
+  }
+  
+  /* Full width for printed content */
+  .print-full-width {
+    width: 100% !important;
+    max-width: none !important;
+  }
+}
+
+/* Focus improvements for accessibility */
+@media (max-width: 768px) {
+  /* Better focus indicators on mobile */
+  *:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+  }
+  
+  /* Larger tap targets for better accessibility */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Animation improvements for mobile */
+@media (prefers-reduced-motion: reduce) {
+  /* Respect user's motion preferences */
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Smooth scrolling for mobile */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Prevent horizontal scroll */
+  body {
+    overflow-x: hidden;
+  }
+}

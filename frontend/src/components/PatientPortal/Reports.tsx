@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Eye, Calendar as CalendarIcon, Stethoscope } from 'lucide-react';
+import { formatDate } from '@/lib/utils';
 
 interface Report {
   id: string;
@@ -55,7 +56,7 @@ export default function Reports({ reports }: ReportsProps) {
     if (report.fileUrl) {
       const link = document.createElement('a');
       link.href = report.fileUrl;
-      link.download = `${report.title}_${report.date}.pdf`;
+      link.download = `${report.title}_${formatDate(report.date)}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -106,7 +107,7 @@ export default function Reports({ reports }: ReportsProps) {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <CalendarIcon className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm">Report Date: {report.date}</span>
+                      <span className="text-sm">Report Date: {formatDate(report.date)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Stethoscope className="h-4 w-4 text-gray-500" />

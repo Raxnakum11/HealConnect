@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Prescription = require('../models/Prescription');
 const Patient = require('../models/Patient');
 const Medicine = require('../models/Medicine');
@@ -100,6 +101,10 @@ const getPrescription = asyncHandler(async (req, res) => {
 // @route   POST /api/prescriptions
 // @access  Private (Doctor only)
 const createPrescription = asyncHandler(async (req, res) => {
+  console.log('🔥 Creating prescription...');
+  console.log('🔥 Request body:', JSON.stringify(req.body, null, 2));
+  console.log('🔥 User ID:', req.user?.id);
+  
   const {
     patientId,
     campId,
@@ -111,24 +116,52 @@ const createPrescription = asyncHandler(async (req, res) => {
     followUpDate
   } = req.body;
   
-  // Verify patient belongs to this doctor
-  const patient = await Patient.findOne({
+  // Validate patientId format
+  if (!mongoose.Types.ObjectId.isValid(patientId)) {
+    console.log('🔥 Invalid patientId format:', patientId);
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid patient ID format. Please select a valid patient.'
+    });
+  }
+
+  // Find patient and update doctor association if needed
+  console.log('🔥 Looking for patient:', patientId, 'for doctor:', req.user.id);
+  let patient = await Patient.findOne({
     _id: patientId,
-    doctorId: req.user.id,
     isActive: true
   });
   
+  console.log('🔥 Found patient:', patient ? 'YES' : 'NO');
+  
   if (!patient) {
+    console.log('🔥 Patient not found');
     return res.status(404).json({
       success: false,
-      message: 'Patient not found or access denied'
+      message: 'Patient not found'
     });
+  }
+  
+  // Update patient's doctor association if not set
+  if (!patient.doctorId || patient.doctorId.toString() !== req.user.id) {
+    console.log('🔥 Updating patient doctor association');
+    patient.doctorId = req.user.id;
+    await patient.save();
   }
   
   // Validate medicines and check availability
   const validatedMedicines = [];
   
   for (const med of medicines) {
+    // Validate medicineId format
+    if (!mongoose.Types.ObjectId.isValid(med.medicineId)) {
+      console.log('🔥 Invalid medicineId format:', med.medicineId);
+      return res.status(400).json({
+        success: false,
+        message: `Invalid medicine ID format: ${med.medicineId}. Please select valid medicines.`
+      });
+    }
+
     const medicine = await Medicine.findOne({
       _id: med.medicineId,
       doctorId: req.user.id,
@@ -162,12 +195,38 @@ const createPrescription = asyncHandler(async (req, res) => {
     });
   }
   
+  // Get doctor info
+  const doctor = await require('../models/User').findById(req.user.id);
+  
+  // Generate a proper visitId as ObjectId
+  const visitObjectId = new mongoose.Types.ObjectId();
+  
+  // Generate prescription number manually
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  
+  // Count prescriptions for today to generate sequence number
+  const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+  const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+  
+  const prescriptionCount = await Prescription.countDocuments({
+    createdAt: { $gte: startOfDay, $lte: endOfDay }
+  });
+  
+  const sequenceNumber = String(prescriptionCount + 1).padStart(3, '0');
+  const prescriptionNumber = `RX${year}${month}${day}${sequenceNumber}`;
+  
+  console.log('🔥 Generated prescription number:', prescriptionNumber);
+  
   // Create prescription
-  const prescription = await Prescription.create({
+  console.log('🔥 Creating prescription with data:', {
     patientId,
     doctorId: req.user.id,
     campId,
-    visitId,
+    visitId: visitObjectId,
+    prescriptionNumber,
     medicines: validatedMedicines,
     symptoms,
     diagnosis,
@@ -175,21 +234,68 @@ const createPrescription = asyncHandler(async (req, res) => {
     followUpDate
   });
   
+  const prescription = new Prescription({
+    patientId,
+    doctorId: req.user.id,
+    campId,
+    visitId: visitObjectId, // Use proper ObjectId
+    prescriptionNumber, // Add prescription number manually
+    medicines: validatedMedicines,
+    symptoms,
+    diagnosis,
+    additionalNotes,
+    followUpDate
+  });
+  
+  await prescription.save();
+  
+  console.log('🔥 Prescription created successfully:', prescription._id);
+
   // Update medicine quantities
+  const medicineUpdates = [];
   for (const med of medicines) {
     await Medicine.findByIdAndUpdate(
       med.medicineId,
       { $inc: { quantity: -med.quantityGiven } }
     );
+    medicineUpdates.push({
+      medicineId: med.medicineId,
+      medicineName: validatedMedicines.find(vm => vm.medicineId.toString() === med.medicineId.toString()).medicineName,
+      dosage: med.dosage,
+      frequency: med.frequency,
+      duration: med.duration,
+      quantityGiven: med.quantityGiven
+    });
   }
+
+  // Create visit history record
+  const visitRecord = {
+    date: new Date(),
+    doctorId: req.user.id,
+    doctorName: `${doctor.firstName} ${doctor.lastName}`,
+    symptoms,
+    diagnosis,
+    prescriptionId: prescription._id,
+    prescribedMedicines: medicineUpdates,
+    instructions: additionalNotes,
+    nextVisitDate: followUpDate,
+    notes: '',
+    campId
+  };
+
+  // Add visit record to patient history
+  console.log('🔥 Adding visit record to patient history:', visitRecord);
   
-  // Add prescription reference to patient
   await Patient.findByIdAndUpdate(
     patientId,
-    { $push: { prescriptions: prescription._id } }
+    { 
+      $push: { visitHistory: visitRecord },
+      lastVisit: new Date(),
+      nextAppointment: followUpDate
+    }
   );
   
-  // Populate the prescription data
+  console.log('🔥 Visit history updated successfully');  // Populate the prescription data
   await prescription.populate([
     { path: 'patientId', select: 'firstName lastName age gender mobileNumber' },
     { path: 'campId', select: 'name location date' },
@@ -437,6 +543,56 @@ const getPrescriptionStats = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Get patient's own prescriptions
+// @route   GET /api/prescriptions/my-prescriptions
+// @access  Private (Patient only)
+const getMyPrescriptions = asyncHandler(async (req, res) => {
+  // Find patient record linked to user
+  const patient = await Patient.findOne({ 
+    userId: req.user.id,
+    isActive: true 
+  });
+  
+  if (!patient) {
+    return res.status(404).json({
+      success: false,
+      message: 'Patient record not found'
+    });
+  }
+
+  // Get prescriptions for this patient
+  const prescriptions = await Prescription.find({ 
+    patientId: patient._id,
+    isActive: true 
+  })
+    .populate('doctorId', 'firstName lastName specialization')
+    .populate('campId', 'name location date')
+    .sort({ createdAt: -1 });
+
+  // Format prescriptions for patient view
+  const formattedPrescriptions = prescriptions.map(prescription => ({
+    id: prescription._id,
+    prescribedDate: prescription.createdAt,
+    doctorName: `${prescription.doctorId.firstName} ${prescription.doctorId.lastName}`,
+    instructions: prescription.additionalNotes || 'Take as directed',
+    nextVisitDate: prescription.followUpDate,
+    priority: prescription.status === 'active' ? 'medium' : 'low',
+    type: prescription.status === 'active' ? 'current' : 'past',
+    status: prescription.status,
+    symptoms: prescription.symptoms,
+    diagnosis: prescription.diagnosis,
+    campInfo: prescription.campId ? {
+      name: prescription.campId.name,
+      location: prescription.campId.location
+    } : null
+  }));
+
+  res.status(200).json({
+    success: true,
+    data: { prescriptions: formattedPrescriptions }
+  });
+});
+
 module.exports = {
   getPrescriptions,
   getPrescription,
@@ -445,5 +601,6 @@ module.exports = {
   deletePrescription,
   completePrescription,
   getPatientPrescriptions,
-  getPrescriptionStats
+  getPrescriptionStats,
+  getMyPrescriptions
 };

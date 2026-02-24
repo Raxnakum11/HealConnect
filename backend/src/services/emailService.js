@@ -10,8 +10,8 @@ class EmailService {
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: process.env.EMAIL_USER || 'your-email@gmail.com',
-        pass: process.env.EMAIL_PASS || 'your-gmail-app-password'
+        user: process.env.EMAIL_USER || 'abc592052@gmail.com',
+        pass: process.env.EMAIL_PASS || 'kpqo ettk cfgo zcrm'
       },
       logger: true,
       debug: false // Set to true for more detailed SMTP logs
@@ -41,7 +41,7 @@ class EmailService {
   async sendEmail({ to, subject, html, text }) {
     try {
       const mailOptions = {
-        from: `HealConnect <${process.env.EMAIL_USER || 'your-email@gmail.com'}>`,
+        from: `HealConnect <${process.env.EMAIL_USER || 'abc592052@gmail.com'}>`,
         to,
         subject,
         html: html || text,
@@ -422,6 +422,127 @@ class EmailService {
         <div class="footer">
           <p>This is an automated message from HealConnect. Please do not reply to this email.</p>
           <p>For any queries, contact us at support@healconnect.com</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+  }
+
+  // Send appointment status notification (approved/rejected)
+  async sendAppointmentStatusNotification(patientEmail, appointmentData, status, notes = '') {
+    const subject = `Appointment ${status.charAt(0).toUpperCase() + status.slice(1)} - HealConnect`;
+    const html = this.getAppointmentStatusTemplate(appointmentData, status, notes);
+    
+    return await this.sendEmail({
+      to: patientEmail,
+      subject,
+      html
+    });
+  }
+
+  // Template for appointment status notifications
+  getAppointmentStatusTemplate(data, status, notes = '') {
+    const statusColors = {
+      approved: { bg: '#10b981', icon: '✅', title: 'Appointment Approved' },
+      rejected: { bg: '#ef4444', icon: '❌', title: 'Appointment Not Approved' },
+      completed: { bg: '#8b5cf6', icon: '✔️', title: 'Appointment Completed' },
+      cancelled: { bg: '#6b7280', icon: '⭕', title: 'Appointment Cancelled' }
+    };
+
+    const statusInfo = statusColors[status] || statusColors.approved;
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: ${statusInfo.bg}; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background: #f8f9fa; }
+        .status-card { background: white; padding: 20px; border-radius: 8px; border-left: 4px solid ${statusInfo.bg}; margin: 20px 0; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        .btn { display: inline-block; background: ${statusInfo.bg}; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; }
+        .status-icon { font-size: 48px; text-align: center; margin: 20px 0; }
+        .appointment-details { background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0; }
+        .status-message { 
+          padding: 15px; 
+          border-radius: 8px; 
+          margin: 15px 0; 
+          ${status === 'approved' ? 'background: #d1fae5; border: 1px solid #10b981;' : 'background: #fee2e2; border: 1px solid #ef4444;'}
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🏥 HealConnect</h1>
+          <h2>${statusInfo.title}</h2>
+        </div>
+        <div class="content">
+          <div class="status-icon">${statusInfo.icon}</div>
+          
+          <div class="status-card">
+            <h3>Dear ${data.patientName},</h3>
+            
+            <div class="status-message">
+              <p><strong>Your appointment has been ${status}.</strong></p>
+              ${status === 'approved' ? 
+                '<p>🎉 Great news! Your appointment has been confirmed. Please make sure to attend on the scheduled date and time.</p>' :
+                '<p>We regret to inform you that your appointment could not be approved at this time.</p>'
+              }
+            </div>
+            
+            <div class="appointment-details">
+              <h4>📅 Appointment Details:</h4>
+              <ul>
+                <li><strong>Date:</strong> ${new Date(data.date).toLocaleDateString()}</li>
+                <li><strong>Time:</strong> ${data.timeSlot || data.time}</li>
+                <li><strong>Doctor:</strong> ${data.doctorName || 'Dr. Himanshu Sonagara'}</li>
+                <li><strong>Type:</strong> ${data.type || 'General Consultation'}</li>
+                <li><strong>Reason:</strong> ${data.reason}</li>
+                <li><strong>Status:</strong> <span style="color: ${statusInfo.bg}; font-weight: bold;">${status.toUpperCase()}</span></li>
+              </ul>
+            </div>
+            
+            ${notes ? `
+            <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin: 15px 0;">
+              <h4>📝 Doctor's Notes:</h4>
+              <p>${notes}</p>
+            </div>
+            ` : ''}
+            
+            ${status === 'approved' ? `
+            <div style="background: #dbeafe; padding: 15px; border-radius: 8px; margin: 15px 0;">
+              <h4>📋 Important Instructions:</h4>
+              <ul>
+                <li>Please arrive 15 minutes before your appointment time</li>
+                <li>Bring your previous medical records if any</li>
+                <li>Carry a valid ID proof</li>
+                <li>If you need to reschedule, please contact us at least 24 hours in advance</li>
+              </ul>
+            </div>
+            ` : status === 'rejected' ? `
+            <div style="background: #fee2e2; padding: 15px; border-radius: 8px; margin: 15px 0;">
+              <h4>🔄 Next Steps:</h4>
+              <ul>
+                <li>You can book a new appointment for a different date/time</li>
+                <li>Contact our support team if you have questions</li>
+                <li>Consider booking during less busy hours</li>
+              </ul>
+            </div>
+            ` : ''}
+          </div>
+          
+          <p style="text-align: center; margin-top: 20px;">
+            <a href="http://localhost:8080" class="btn">View Dashboard</a>
+          </p>
+        </div>
+        <div class="footer">
+          <p>This is an automated message from HealConnect. Please do not reply to this email.</p>
+          <p>For any queries, contact us at support@healconnect.com or call +91 98765 43210</p>
         </div>
       </div>
     </body>

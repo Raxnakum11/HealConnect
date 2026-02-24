@@ -11,26 +11,31 @@ const generateToken = (id) => {
   });
 };
 
-// Helper function to get demo doctor ID
-const getDemoDoctorId = async () => {
-  const demoDoctor = await User.findOne({ mobile: '9999999999', role: 'doctor' });
-  return demoDoctor ? demoDoctor._id : null;
+// Generate 6-digit OTP
+const generateOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// @desc    Register user
-// @route   POST /api/auth/register
-// @access  Public
-const register = asyncHandler(async (req, res) => {
-  const {
-    name,
-    email,
-    mobile,
-    password,
-    role,
-    specialization
-  } = req.body;
+// ============================================================
+// DOCTOR AUTH
+// ============================================================
 
-  // Check if user already exists
+// @desc    Register doctor (only ONE doctor allowed)
+// @route   POST /api/auth/doctor/register
+// @access  Public
+const doctorRegister = asyncHandler(async (req, res) => {
+  const { name, email, mobile, password } = req.body;
+
+  // Check if a doctor already exists
+  const existingDoctor = await User.findOne({ role: 'doctor' });
+  if (existingDoctor) {
+    return res.status(400).json({
+      success: false,
+      message: 'A doctor account already exists. Only one doctor is allowed.'
+    });
+  }
+
+  // Check if email or mobile already taken
   const existingUser = await User.findOne({
     $or: [{ email }, { mobile }]
   });
@@ -50,246 +55,62 @@ const register = asyncHandler(async (req, res) => {
     }
   }
 
-  // Create user
-  const userData = {
+  // Create doctor user
+  const user = await User.create({
     name,
     email,
     mobile,
     password,
-    role
-  };
+    role: 'doctor'
+  });
 
-  // Add doctor-specific fields
-  if (role === 'doctor') {
-    userData.specialization = specialization;
-  }
-
-  const user = await User.create(userData);
-
-  // If user is a patient, also create a Patient record
-  if (role === 'patient') {
-    // Get demo doctor ID for assignment
-    const demoDoctorId = await getDemoDoctorId();
-    
-    // Generate unique patient ID
-    let patientId;
-    let isUnique = false;
-    let counter = 1;
-    
-    // Get the highest existing patient number globally
-    const lastPatient = await Patient.findOne(
-      {},
-      { patientId: 1 }
-    ).sort({ patientId: -1 });
-    
-    if (lastPatient && lastPatient.patientId) {
-      // Extract number from patientId (e.g., "PAT0006" -> 6)
-      const lastNumber = parseInt(lastPatient.patientId.replace('PAT', ''));
-      counter = lastNumber + 1;
-    }
-    
-    // Ensure uniqueness
-    while (!isUnique) {
-      patientId = `PAT${String(counter).padStart(4, '0')}`;
-      const existingWithId = await Patient.findOne({ patientId });
-      
-      if (!existingWithId) {
-        isUnique = true;
-      } else {
-        counter++;
-      }
-    }
-    
-    const patientData = {
-      patientId,
-      name,
-      email,
-      mobile,
-      age: 25, // Default age - user can update later
-      gender: 'Other', // Default gender - user can update later
-      address: 'Not provided', // Default address - user can update later
-      medicalHistory: '',
-      type: 'clinic', // Self-registered patients are clinic type
-      userId: user._id, // Link to user record
-      doctorId: demoDoctorId, // Assign to demo doctor for demo purposes
-      isActive: true
-    };
-
-    try {
-      const patientRecord = await Patient.create(patientData);
-      console.log(`✅ Patient record created: ${patientRecord.patientId} for ${user.email} assigned to demo doctor`);
-    } catch (patientError) {
-      console.warn(`⚠️  Failed to create patient record for ${user.email}:`, patientError.message);
-      // Continue with user creation even if patient creation fails
-    }
-  }
-
-  // Generate token
   const token = generateToken(user._id);
 
   res.status(201).json({
     success: true,
-    message: 'User registered successfully',
+    message: 'Doctor registered successfully',
     data: {
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
         mobile: user.mobile,
-        role: user.role,
-        specialization: user.specialization
+        role: user.role
       },
       token
     }
   });
 });
 
-// @desc    Login user with email/password OR mobile/name (backward compatibility)
-// @route   POST /api/auth/login
+// @desc    Login doctor with email/password
+// @route   POST /api/auth/doctor/login
 // @access  Public
-const login = asyncHandler(async (req, res) => {
-  const { mobile, name, role, email, password } = req.body;
-  
-  console.log('Login request received:', { mobile, name, role, email: email ? '***' : undefined });
+const doctorLogin = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
 
-  let user = null;
+  // Find doctor by email
+  const user = await User.findOne({ email: email.toLowerCase(), role: 'doctor' });
 
-  // Method 1: Email and Password login (preferred)
-  if (email && password) {
-    user = await User.findOne({ email: email.toLowerCase() });
-    
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
-      });
-    }
-
-    // Check password
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
-      });
-    }
-
-    // Update last login
-    user.lastLogin = new Date();
-    await user.save();
-    
-  } else if (mobile) {
-    // Method 2: Mobile login (with optional name for backward compatibility)
-    user = await User.findOne({ mobile: mobile });
-
-    if (!user) {
-      // Create new user if doesn't exist (auto-registration)
-      const userData = {
-        name: name || `User${mobile}`, // Use provided name or generate default
-        mobile: mobile,
-        role: role || 'patient',
-        email: `user${mobile}@healconnect.com`, // Generate dummy email
-        password: 'dummy123' // Dummy password
-      };
-
-      // Add doctor-specific fields
-      if (role === 'doctor') {
-        userData.specialization = 'homeopathy';
-      }
-
-      user = await User.create(userData);
-
-      // Create patient record for new users with patient role
-      if (user.role === 'patient') {
-        const demoDoctorId = await getDemoDoctorId();
-        
-        // Generate unique patient ID
-        let patientId;
-        let isUnique = false;
-        let counter = 1;
-        
-        const lastPatient = await Patient.findOne({}, { patientId: 1 }).sort({ patientId: -1 });
-        
-        if (lastPatient && lastPatient.patientId) {
-          const lastNumber = parseInt(lastPatient.patientId.replace('PAT', ''));
-          counter = lastNumber + 1;
-        }
-        
-        while (!isUnique) {
-          patientId = `PAT${String(counter).padStart(4, '0')}`;
-          const existingWithId = await Patient.findOne({ patientId });
-          
-          if (!existingWithId) {
-            isUnique = true;
-          } else {
-            counter++;
-          }
-        }
-        
-        const patientData = {
-          patientId,
-          name: user.name,
-          email: user.email,
-          mobile: user.mobile,
-          age: 25,
-          gender: 'Other',
-          address: 'Not provided',
-          medicalHistory: '',
-          type: 'clinic',
-          userId: user._id,
-          doctorId: demoDoctorId, // Assign to demo doctor
-          isActive: true
-        };
-
-        try {
-          await Patient.create(patientData);
-          console.log(`✅ Patient record created for auto-registered user: ${user.email}`);
-        } catch (patientError) {
-          console.warn(`⚠️  Failed to create patient record:`, patientError.message);
-        }
-      }
-    } else {
-      // Update name if provided and different
-      if (name && name !== user.name) {
-        user.name = name;
-      }
-      
-      // Update last login
-      user.lastLogin = new Date();
-      await user.save();
-    }
-  } else {
-    return res.status(400).json({
+  if (!user) {
+    return res.status(401).json({
       success: false,
-      message: 'Please provide either email/password or mobile number'
+      message: 'Invalid email or password'
     });
   }
 
-  // Special handling for demo doctor login - assign unassigned patients
-  if (user.role === 'doctor' && user.mobile === '9999999999') {
-    try {
-      // Assign all unassigned patients to this demo doctor
-      const updateResult = await Patient.updateMany(
-        { $or: [{ doctorId: null }, { doctorId: { $exists: false } }] },
-        { doctorId: user._id }
-      );
-      
-      if (updateResult.modifiedCount > 0) {
-        console.log(`✅ Assigned ${updateResult.modifiedCount} unassigned patients to demo doctor`);
-      }
-      
-      // Also update any existing patients that might belong to this doctor
-      await Patient.updateMany(
-        { mobile: { $in: ['9876543210', user.mobile] } }, // Common test numbers
-        { doctorId: user._id }
-      );
-      
-    } catch (error) {
-      console.warn('⚠️  Failed to assign patients to demo doctor:', error.message);
-    }
+  // Check password
+  const isPasswordValid = await user.comparePassword(password);
+  if (!isPasswordValid) {
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid email or password'
+    });
   }
 
-  // Generate token
+  // Update last login
+  user.lastLogin = new Date();
+  await user.save();
+
   const token = generateToken(user._id);
 
   res.status(200).json({
@@ -301,13 +122,171 @@ const login = asyncHandler(async (req, res) => {
         name: user.name,
         email: user.email,
         mobile: user.mobile,
-        role: user.role,
-        specialization: user.specialization
+        role: user.role
       },
       token
     }
   });
 });
+
+// ============================================================
+// PATIENT AUTH (OTP-based, restricted to doctor-created cases)
+// ============================================================
+
+// @desc    Send OTP to patient mobile (only if doctor created their case)
+// @route   POST /api/auth/patient/send-otp
+// @access  Public
+const sendOtp = asyncHandler(async (req, res) => {
+  const { mobile } = req.body;
+
+  // Check if a doctor-created active Patient record exists for this mobile
+  const patient = await Patient.findOne({
+    mobile,
+    isActive: true,
+    doctorId: { $exists: true, $ne: null }
+  }).sort({ updatedAt: -1, createdAt: -1 });
+
+  if (!patient) {
+    return res.status(404).json({
+      success: false,
+      message: 'No patient record found. Only patients registered by the doctor can log in.'
+    });
+  }
+
+  // Find or create a User record for this patient
+  let user = await User.findOne({ mobile, role: 'patient' });
+
+  if (!user) {
+    // Auto-create user record for this patient
+    user = await User.create({
+      name: patient.name,
+      mobile: patient.mobile,
+      email: patient.email || undefined,
+      role: 'patient'
+    });
+  }
+
+  // Always ensure active doctor-created patient records with same mobile are linked to this user
+  await Patient.updateMany(
+    {
+      mobile,
+      isActive: true,
+      doctorId: { $exists: true, $ne: null },
+      $or: [{ userId: { $exists: false } }, { userId: null }, { userId: { $ne: user._id } }]
+    },
+    { $set: { userId: user._id } }
+  );
+
+  // Generate OTP
+  const otp = generateOTP();
+  const otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+  // Store OTP in user record
+  user.otp = otp;
+  user.otpExpiry = otpExpiry;
+  await user.save();
+
+  // Log OTP to console (in production, send via SMS)
+  console.log(`\n📱 OTP for ${mobile}: ${otp} (expires in 5 minutes)\n`);
+
+  const responseData = {
+    mobile,
+    otpExpiry: otpExpiry.toISOString()
+  };
+
+  // Development convenience: return OTP in API response when not in production
+  if (process.env.NODE_ENV !== 'production') {
+    responseData.devOtp = otp;
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'OTP sent successfully to your mobile number',
+    data: responseData
+  });
+});
+
+// @desc    Verify OTP and login patient
+// @route   POST /api/auth/patient/verify-otp
+// @access  Public
+const verifyOtp = asyncHandler(async (req, res) => {
+  const { mobile, otp } = req.body;
+
+  // Find user by mobile
+  const user = await User.findOne({ mobile, role: 'patient' });
+
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found. Please request a new OTP.'
+    });
+  }
+
+  // Check if OTP exists and hasn't expired
+  if (!user.otp || !user.otpExpiry) {
+    return res.status(400).json({
+      success: false,
+      message: 'No OTP found. Please request a new OTP.'
+    });
+  }
+
+  if (new Date() > user.otpExpiry) {
+    // Clear expired OTP
+    user.otp = null;
+    user.otpExpiry = null;
+    await user.save();
+
+    return res.status(400).json({
+      success: false,
+      message: 'OTP has expired. Please request a new OTP.'
+    });
+  }
+
+  if (user.otp !== otp) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid OTP. Please try again.'
+    });
+  }
+
+  // Ensure patient records are linked for profile access after successful OTP verification
+  await Patient.updateMany(
+    {
+      mobile,
+      isActive: true,
+      doctorId: { $exists: true, $ne: null },
+      $or: [{ userId: { $exists: false } }, { userId: null }, { userId: { $ne: user._id } }]
+    },
+    { $set: { userId: user._id } }
+  );
+
+  // OTP is valid — clear it and login
+  user.otp = null;
+  user.otpExpiry = null;
+  user.lastLogin = new Date();
+  await user.save();
+
+  const token = generateToken(user._id);
+
+  res.status(200).json({
+    success: true,
+    message: 'Login successful',
+    data: {
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        mobile: user.mobile,
+        role: user.role
+      },
+      token
+    }
+  });
+});
+
+// ============================================================
+// SHARED ENDPOINTS (both roles)
+// ============================================================
 
 // @desc    Get current user profile
 // @route   GET /api/auth/me
@@ -324,7 +303,6 @@ const getMe = asyncHandler(async (req, res) => {
         email: user.email,
         mobile: user.mobile,
         role: user.role,
-        specialization: user.specialization,
         createdAt: user.createdAt,
         lastLogin: user.lastLogin
       }
@@ -337,16 +315,14 @@ const getMe = asyncHandler(async (req, res) => {
 // @access  Private
 const updateProfile = asyncHandler(async (req, res) => {
   const fieldsToUpdate = {};
-  const allowedFields = ['name', 'mobile', 'specialization'];
+  const allowedFields = ['name', 'mobile'];
 
-  // Only update allowed fields that are provided
   allowedFields.forEach(field => {
     if (req.body[field] !== undefined) {
       fieldsToUpdate[field] = req.body[field];
     }
   });
 
-  // Check if mobile number is being changed and not already taken
   if (fieldsToUpdate.mobile) {
     const existingUser = await User.findOne({
       mobile: fieldsToUpdate.mobile,
@@ -364,10 +340,7 @@ const updateProfile = asyncHandler(async (req, res) => {
   const user = await User.findByIdAndUpdate(
     req.user.id,
     fieldsToUpdate,
-    {
-      new: true,
-      runValidators: true
-    }
+    { new: true, runValidators: true }
   );
 
   res.status(200).json({
@@ -379,24 +352,28 @@ const updateProfile = asyncHandler(async (req, res) => {
         name: user.name,
         email: user.email,
         mobile: user.mobile,
-        role: user.role,
-        specialization: user.specialization
+        role: user.role
       }
     }
   });
 });
 
-// @desc    Change password
+// @desc    Change password (doctor only)
 // @route   PUT /api/auth/change-password
 // @access  Private
 const changePassword = asyncHandler(async (req, res) => {
   const { currentPassword, newPassword } = req.body;
 
-  // Get user with password
-  const user = await User.findById(req.user.id).select('+password');
+  const user = await User.findById(req.user.id);
 
-  // Check current password
-  const isCurrentPasswordMatch = await user.matchPassword(currentPassword);
+  if (user.role !== 'doctor') {
+    return res.status(403).json({
+      success: false,
+      message: 'Password change is only available for doctor accounts'
+    });
+  }
+
+  const isCurrentPasswordMatch = await user.comparePassword(currentPassword);
 
   if (!isCurrentPasswordMatch) {
     return res.status(400).json({
@@ -405,7 +382,6 @@ const changePassword = asyncHandler(async (req, res) => {
     });
   }
 
-  // Update password
   user.password = newPassword;
   await user.save();
 
@@ -415,7 +391,7 @@ const changePassword = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    Logout user (just a confirmation, actual logout handled by frontend)
+// @desc    Logout user
 // @route   POST /api/auth/logout
 // @access  Private
 const logout = asyncHandler(async (req, res) => {
@@ -426,8 +402,10 @@ const logout = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
-  register,
-  login,
+  doctorRegister,
+  doctorLogin,
+  sendOtp,
+  verifyOtp,
   getMe,
   updateProfile,
   changePassword,

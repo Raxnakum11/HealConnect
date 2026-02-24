@@ -8,13 +8,13 @@ const getPatients = asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const skip = (page - 1) * limit;
-  
+
   const search = req.query.search || '';
   const campId = req.query.campId;
-  
+
   // Build query
   let query = { isActive: true };
-  
+
   // For doctors: show their assigned patients AND unassigned patients
   if (req.user.role === 'doctor') {
     query = {
@@ -33,7 +33,7 @@ const getPatients = asyncHandler(async (req, res) => {
     // For patients: only show their own record
     query.userId = req.user.id;
   }
-  
+
   // Add search functionality
   if (search) {
     query.$or = [
@@ -43,21 +43,21 @@ const getPatients = asyncHandler(async (req, res) => {
       { email: { $regex: search, $options: 'i' } }
     ];
   }
-  
+
   // Filter by camp if provided
   if (campId) {
     query.campId = campId;
   }
-  
+
   const patients = await Patient.find(query)
     .populate('campId', 'title location date')
     .populate('prescriptions', 'prescriptionNumber createdAt status')
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit);
-  
+
   const total = await Patient.countDocuments(query);
-  
+
   res.status(200).json({
     success: true,
     data: {
@@ -81,22 +81,30 @@ const getPatient = asyncHandler(async (req, res) => {
     .populate('doctorId', 'name specialization')
     .populate('campId', 'title location date')
     .populate('prescriptions');
-  
+
   if (!patient) {
     return res.status(404).json({
       success: false,
       message: 'Patient not found'
     });
   }
-  
+
   // Check if user has access to this patient
-  if (req.user.role === 'doctor' && patient.doctorId._id.toString() !== req.user.id) {
+  if (req.user.role === 'doctor' && patient.doctorId && patient.doctorId._id.toString() !== req.user.id) {
     return res.status(403).json({
       success: false,
       message: 'Access denied'
     });
   }
-  
+
+  // Patients can only view their own record
+  if (req.user.role === 'patient' && (!patient.userId || patient.userId.toString() !== req.user.id)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied'
+    });
+  }
+
   res.status(200).json({
     success: true,
     data: { patient }
@@ -118,14 +126,14 @@ const createPatient = asyncHandler(async (req, res) => {
     type,
     campId
   } = req.body;
-  
+
   // Check if patient with same mobile number already exists for this doctor
   const existingPatient = await Patient.findOne({
     mobile,
     doctorId: req.user.id,
     isActive: true
   });
-  
+
   if (existingPatient) {
     return res.status(400).json({
       success: false,
@@ -137,31 +145,31 @@ const createPatient = asyncHandler(async (req, res) => {
   let patientId;
   let isUnique = false;
   let counter = 1;
-  
+
   // Get the highest existing patient number for this doctor
   const lastPatient = await Patient.findOne(
     { doctorId: req.user.id },
     { patientId: 1 }
   ).sort({ patientId: -1 });
-  
+
   if (lastPatient && lastPatient.patientId) {
     // Extract number from patientId (e.g., "PAT0006" -> 6)
     const lastNumber = parseInt(lastPatient.patientId.replace('PAT', ''));
     counter = lastNumber + 1;
   }
-  
+
   // Ensure uniqueness
   while (!isUnique) {
     patientId = `PAT${String(counter).padStart(4, '0')}`;
     const existingWithId = await Patient.findOne({ patientId });
-    
+
     if (!existingWithId) {
       isUnique = true;
     } else {
       counter++;
     }
   }
-  
+
   // Create patient with email
   const patient = await Patient.create({
     patientId,
@@ -176,12 +184,12 @@ const createPatient = asyncHandler(async (req, res) => {
     campId: type === 'camp' ? campId : undefined,
     doctorId: req.user.id
   });
-  
+
   // Populate the patient data if campId exists
   if (patient.campId) {
     await patient.populate('campId', 'title location date');
   }
-  
+
   res.status(201).json({
     success: true,
     message: 'Patient created successfully',
@@ -194,14 +202,14 @@ const createPatient = asyncHandler(async (req, res) => {
 // @access  Private (Doctor only)
 const updatePatient = asyncHandler(async (req, res) => {
   let patient = await Patient.findById(req.params.id);
-  
+
   if (!patient) {
     return res.status(404).json({
       success: false,
       message: 'Patient not found'
     });
   }
-  
+
   // Check if user owns this patient
   if (patient.doctorId.toString() !== req.user.id) {
     return res.status(403).json({
@@ -209,20 +217,20 @@ const updatePatient = asyncHandler(async (req, res) => {
       message: 'Access denied'
     });
   }
-  
+
   // Fields that can be updated
   const allowedFields = [
-    'firstName', 'lastName', 'age', 'gender', 'mobileNumber', 
+    'firstName', 'lastName', 'age', 'gender', 'mobileNumber',
     'email', 'address', 'previousTreatment', 'allergies', 'chronicDiseases'
   ];
-  
+
   const fieldsToUpdate = {};
   allowedFields.forEach(field => {
     if (req.body[field] !== undefined) {
       fieldsToUpdate[field] = req.body[field];
     }
   });
-  
+
   // Check if mobile number is being changed and not already taken
   if (fieldsToUpdate.mobileNumber && fieldsToUpdate.mobileNumber !== patient.mobileNumber) {
     const existingPatient = await Patient.findOne({
@@ -231,7 +239,7 @@ const updatePatient = asyncHandler(async (req, res) => {
       _id: { $ne: req.params.id },
       isActive: true
     });
-    
+
     if (existingPatient) {
       return res.status(400).json({
         success: false,
@@ -239,7 +247,7 @@ const updatePatient = asyncHandler(async (req, res) => {
       });
     }
   }
-  
+
   patient = await Patient.findByIdAndUpdate(
     req.params.id,
     fieldsToUpdate,
@@ -248,7 +256,7 @@ const updatePatient = asyncHandler(async (req, res) => {
       runValidators: true
     }
   ).populate('campId', 'title location date');
-  
+
   res.status(200).json({
     success: true,
     message: 'Patient updated successfully',
@@ -261,14 +269,14 @@ const updatePatient = asyncHandler(async (req, res) => {
 // @access  Private (Doctor only)
 const deletePatient = asyncHandler(async (req, res) => {
   const patient = await Patient.findById(req.params.id);
-  
+
   if (!patient) {
     return res.status(404).json({
       success: false,
       message: 'Patient not found'
     });
   }
-  
+
   // Check if user owns this patient
   if (patient.doctorId.toString() !== req.user.id) {
     return res.status(403).json({
@@ -276,11 +284,11 @@ const deletePatient = asyncHandler(async (req, res) => {
       message: 'Access denied'
     });
   }
-  
+
   // Soft delete
   patient.isActive = false;
   await patient.save();
-  
+
   res.status(200).json({
     success: true,
     message: 'Patient deleted successfully'
@@ -292,14 +300,14 @@ const deletePatient = asyncHandler(async (req, res) => {
 // @access  Private (Doctor only)
 const addVisit = asyncHandler(async (req, res) => {
   const patient = await Patient.findById(req.params.id);
-  
+
   if (!patient) {
     return res.status(404).json({
       success: false,
       message: 'Patient not found'
     });
   }
-  
+
   // Check if user owns this patient
   if (patient.doctorId.toString() !== req.user.id) {
     return res.status(403).json({
@@ -307,20 +315,20 @@ const addVisit = asyncHandler(async (req, res) => {
       message: 'Access denied'
     });
   }
-  
+
   const { campId, clinicType, symptoms } = req.body;
-  
+
   const visit = {
     campId: campId || null,
     clinicType: clinicType || 'clinic',
     symptoms,
     visitDate: new Date()
   };
-  
+
   patient.visitHistory.push(visit);
   await patient.save();
   await patient.populate('campId', 'title location date');
-  
+
   res.status(201).json({
     success: true,
     message: 'Visit added successfully',
@@ -333,19 +341,19 @@ const addVisit = asyncHandler(async (req, res) => {
 // @access  Private (Doctor only)
 const getPatientStats = asyncHandler(async (req, res) => {
   const doctorId = req.user.id;
-  
+
   // Total patients
-  const totalPatients = await Patient.countDocuments({ 
-    doctorId, 
-    isActive: true 
+  const totalPatients = await Patient.countDocuments({
+    doctorId,
+    isActive: true
   });
-  
+
   // Patients by gender
   const genderStats = await Patient.aggregate([
     { $match: { doctorId: doctorId, isActive: true } },
     { $group: { _id: '$gender', count: { $sum: 1 } } }
   ]);
-  
+
   // Patients by age groups
   const ageStats = await Patient.aggregate([
     { $match: { doctorId: doctorId, isActive: true } },
@@ -366,17 +374,17 @@ const getPatientStats = asyncHandler(async (req, res) => {
       }
     }
   ]);
-  
+
   // Recent patients (last 30 days)
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  
+
   const recentPatients = await Patient.countDocuments({
     doctorId,
     isActive: true,
     createdAt: { $gte: thirtyDaysAgo }
   });
-  
+
   res.status(200).json({
     success: true,
     data: {
@@ -393,14 +401,14 @@ const getPatientStats = asyncHandler(async (req, res) => {
 // @access  Private (Doctor only)
 const assignPatientToDoctor = asyncHandler(async (req, res) => {
   const patient = await Patient.findById(req.params.id);
-  
+
   if (!patient) {
     return res.status(404).json({
       success: false,
       message: 'Patient not found'
     });
   }
-  
+
   // Check if patient is already assigned to another doctor
   if (patient.doctorId && patient.doctorId.toString() !== req.user.id) {
     return res.status(400).json({
@@ -408,13 +416,13 @@ const assignPatientToDoctor = asyncHandler(async (req, res) => {
       message: 'Patient is already assigned to another doctor'
     });
   }
-  
+
   // Assign patient to the current doctor
   patient.doctorId = req.user.id;
   await patient.save();
-  
+
   await patient.populate('doctorId', 'name specialization');
-  
+
   res.status(200).json({
     success: true,
     message: 'Patient assigned successfully',
@@ -427,23 +435,23 @@ const assignPatientToDoctor = asyncHandler(async (req, res) => {
 // @access  Private (Doctor only)
 const updatePatientEmail = asyncHandler(async (req, res) => {
   const { email } = req.body;
-  
+
   if (!email) {
     return res.status(400).json({
       success: false,
       message: 'Email address is required'
     });
   }
-  
+
   const patient = await Patient.findById(req.params.id);
-  
+
   if (!patient) {
     return res.status(404).json({
       success: false,
       message: 'Patient not found'
     });
   }
-  
+
   // Check if doctor has access to this patient
   if (patient.doctorId && patient.doctorId.toString() !== req.user.id) {
     return res.status(403).json({
@@ -451,22 +459,86 @@ const updatePatientEmail = asyncHandler(async (req, res) => {
       message: 'Access denied'
     });
   }
-  
+
   // Update email
   patient.email = email.toLowerCase().trim();
-  
+
   // If patient is unassigned, assign to current doctor
   if (!patient.doctorId) {
     patient.doctorId = req.user.id;
   }
-  
+
   await patient.save();
   await patient.populate('doctorId', 'name specialization');
-  
+
   res.status(200).json({
     success: true,
     message: 'Patient email updated successfully',
     data: { patient }
+  });
+});
+
+// @desc    Get patient visit history
+// @route   GET /api/patients/:id/visit-history
+// @access  Private
+const getPatientVisitHistory = asyncHandler(async (req, res) => {
+  const patient = await Patient.findById(req.params.id)
+    .populate('visitHistory.doctorId', 'name')
+    .populate('visitHistory.prescribedMedicines.medicineId', 'name size unit')
+    .populate('visitHistory.campId', 'name location date');
+
+  if (!patient) {
+    return res.status(404).json({
+      success: false,
+      message: 'Patient not found'
+    });
+  }
+
+  // Check if user has access to this patient
+  if (req.user.role === 'doctor' && patient.doctorId && patient.doctorId.toString() !== req.user.id) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied'
+    });
+  }
+
+  if (req.user.role === 'patient' && patient.userId && patient.userId.toString() !== req.user.id) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied'
+    });
+  }
+
+  // Sort visit history by date (newest first)
+  const sortedVisitHistory = patient.visitHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const normalizedVisitHistory = sortedVisitHistory.map((visit) => {
+    const visitObj = typeof visit.toObject === 'function' ? visit.toObject() : visit;
+    const doctorNameFromRef =
+      visitObj?.doctorId && typeof visitObj.doctorId === 'object' ? visitObj.doctorId.name : '';
+    const rawDoctorName = (visitObj?.doctorName || '').trim();
+    const isInvalidDoctorName =
+      !rawDoctorName || /^undefined(\s+undefined)?$/i.test(rawDoctorName);
+
+    return {
+      ...visitObj,
+      doctorName: doctorNameFromRef || (isInvalidDoctorName ? 'Dr. Himanshu Sonagara' : rawDoctorName)
+    };
+  });
+
+  res.status(200).json({
+    success: true,
+    data: {
+      visitHistory: normalizedVisitHistory,
+      patientInfo: {
+        id: patient._id,
+        name: patient.name,
+        age: patient.age,
+        gender: patient.gender,
+        mobile: patient.mobile,
+        type: patient.type
+      }
+    }
   });
 });
 
@@ -479,5 +551,6 @@ module.exports = {
   addVisit,
   getPatientStats,
   assignPatientToDoctor,
-  updatePatientEmail
+  updatePatientEmail,
+  getPatientVisitHistory
 };

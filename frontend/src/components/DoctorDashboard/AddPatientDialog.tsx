@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { formatDate } from '@/lib/utils';
 
 interface Camp {
   id: string;
@@ -73,14 +74,12 @@ export default function AddPatientDialog({
   
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
         <DialogHeader>
-          <DialogTitle>Add New Patient</DialogTitle>
-          <DialogDescription>
-            Add a new patient to your practice. Fill in the required information and optionally provide an email address for notifications.
-          </DialogDescription>
+          <DialogTitle className="text-lg sm:text-xl">Add New Patient</DialogTitle>
+         
         </DialogHeader>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div>
             <Label>Patient Type</Label>
             <Select value={newPatient.type} onValueChange={(value: 'clinic' | 'camp') => {
@@ -177,7 +176,7 @@ export default function AddPatientDialog({
                   ) : (
                     activeCamps.map(camp => (
                       <SelectItem key={camp.id} value={camp.id}>
-                        {camp.title} - {camp.location} ({camp.date})
+                        {camp.title} - {camp.location} ({formatDate(camp.date)})
                       </SelectItem>
                     ))
                   )}

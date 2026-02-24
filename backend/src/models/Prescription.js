@@ -117,7 +117,7 @@ prescriptionSchema.index({ status: 1 });
 
 // Virtual for total medicines count
 prescriptionSchema.virtual('medicinesCount').get(function() {
-  return this.medicines.length;
+  return this.medicines ? this.medicines.length : 0;
 });
 
 // Virtual for prescription age

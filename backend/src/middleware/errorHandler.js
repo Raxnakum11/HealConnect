@@ -11,10 +11,17 @@ const handleValidationErrors = (req, res, next) => {
       value: error.value
     }));
     
+    // Add detailed logging for debugging
+    console.log('=== VALIDATION ERRORS ===');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    console.log('Validation errors:', formattedErrors);
+    console.log('========================');
+    
     return res.status(400).json({
       success: false,
       message: 'Validation failed',
-      errors: formattedErrors
+      errors: formattedErrors,
+      details: formattedErrors.map(err => `${err.field}: ${err.message}`).join(', ')
     });
   }
   

@@ -1,7 +1,9 @@
 const express = require('express');
 const {
-  register,
-  login,
+  doctorRegister,
+  doctorLogin,
+  sendOtp,
+  verifyOtp,
   getMe,
   updateProfile,
   changePassword,
@@ -10,32 +12,66 @@ const {
 const { authenticateToken } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/errorHandler');
 const {
-  registerValidation,
-  loginValidation,
+  doctorRegisterValidation,
+  doctorLoginValidation,
+  sendOtpValidation,
+  verifyOtpValidation,
   changePasswordValidation
 } = require('../middleware/validation');
 
 const router = express.Router();
 
-// @route   POST /api/auth/register
-// @desc    Register a new user
+// ============================================================
+// DOCTOR AUTH ROUTES
+// ============================================================
+
+// @route   POST /api/auth/doctor/register
+// @desc    Register doctor (only one allowed)
 // @access  Public
 router.post(
-  '/register',
-  // registerValidation, // Temporarily disabled for testing
-  // handleValidationErrors, // Temporarily disabled for testing
-  register
+  '/doctor/register',
+  doctorRegisterValidation,
+  handleValidationErrors,
+  doctorRegister
 );
 
-// @route   POST /api/auth/login
-// @desc    Login user
+// @route   POST /api/auth/doctor/login
+// @desc    Login doctor with email/password
 // @access  Public
 router.post(
-  '/login',
-  loginValidation,
+  '/doctor/login',
+  doctorLoginValidation,
   handleValidationErrors,
-  login
+  doctorLogin
 );
+
+// ============================================================
+// PATIENT AUTH ROUTES (OTP-based)
+// ============================================================
+
+// @route   POST /api/auth/patient/send-otp
+// @desc    Send OTP to patient mobile (only doctor-created patients)
+// @access  Public
+router.post(
+  '/patient/send-otp',
+  sendOtpValidation,
+  handleValidationErrors,
+  sendOtp
+);
+
+// @route   POST /api/auth/patient/verify-otp
+// @desc    Verify OTP and login patient
+// @access  Public
+router.post(
+  '/patient/verify-otp',
+  verifyOtpValidation,
+  handleValidationErrors,
+  verifyOtp
+);
+
+// ============================================================
+// SHARED ROUTES (both roles)
+// ============================================================
 
 // @route   GET /api/auth/me
 // @desc    Get current user profile
@@ -48,7 +84,7 @@ router.get('/me', authenticateToken, getMe);
 router.put('/profile', authenticateToken, updateProfile);
 
 // @route   PUT /api/auth/change-password
-// @desc    Change user password
+// @desc    Change password (doctor only)
 // @access  Private
 router.put(
   '/change-password',

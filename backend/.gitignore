@@ -1,116 +1,53 @@
-# HealConnect - Comprehensive Backend .gitignore
-
-# =============================================================================
-# CRITICAL SECURITY FILES - NEVER COMMIT THESE
-# =============================================================================
+# Environment Variables
 .env
 .env.local
-.env.development
 .env.production
-.env.test
 
-# Backup environment files
-.env.backup
-.env.*.backup
-
-# Database dumps
-*.sql
-*.dump
-dump.rdb
-
-# Private keys and certificates
-*.key
-*.pem
-*.p12
-*.pfx
-
-# =============================================================================
-# APPLICATION SPECIFIC
-# =============================================================================
-
-# Node.js Dependencies
+# Dependencies
 node_modules/
+
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
-# Build outputs
-dist/
-build/
-out/
-
-# =============================================================================
-# DEVELOPMENT AND TESTING FILES WITH REAL DATA
-# =============================================================================
-
-# Test files with real credentials
-*Test.js
-*test.js
-test-*.js
-demo*.js
-verify*.js
-addDemo*.js
-*EmailTest.js
-*EmailDemo.js
-realEmailTest.js
-simpleEmailTest.js
-testRealEmail.js
-sendDemoEmail.js
-finalEmailDemo.js
-emailDemo.js
-
-# Coverage reports
-coverage/
-*.lcov
-.nyc_output/
-
-# =============================================================================
-# LOGS AND RUNTIME
-# =============================================================================
-
-# Application logs
-logs/
-*.log
-*.log.*
-
 # Runtime data
-pids/
+pids
 *.pid
 *.seed
 *.pid.lock
 
-# =============================================================================
-# CACHE AND TEMPORARY FILES
-# =============================================================================
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
 
-# npm cache
-.npm/
+# nyc test coverage
+.nyc_output
+
+# Grunt intermediate storage
+.grunt
+
+# Bower dependency directory
+bower_components
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons
+build/Release
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
 .eslintcache
-
-# Yarn cache
-.yarn-integrity
-
-# Optional REPL history
-.node_repl_history
 
 # Microbundle cache
 .rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
-
-# =============================================================================
-# SECURITY NOTES
-# =============================================================================
-
-# This .gitignore protects:
-# 1. Environment variables (.env files)
-# 2. Email credentials and passwords  
-# 3. Database connection strings
-# 4. JWT secrets and API keys
-# 5. Test files with real data
-# 6. Development debugging files
 .rts2_cache_cjs/
 .rts2_cache_es/
 .rts2_cache_umd/
