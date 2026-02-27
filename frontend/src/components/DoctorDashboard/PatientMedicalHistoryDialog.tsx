@@ -37,8 +37,17 @@ const PatientMedicalHistoryDialog: React.FC<PatientMedicalHistoryDialogProps> = 
 }) => {
   if (!patient) return null;
 
+  // Safe getters for patient properties
+  const safeAge = typeof patient.age === 'number' ? patient.age : parseInt(String(patient.age)) || 0;
+  const safeGender = patient.gender || 'Not specified';
+  const safeName = patient.name || 'Unknown Patient';
+  const safeMobile = patient.mobile || 'No phone';
+  const safeAddress = patient.address || 'No address';
+  const safeType = patient.type || 'clinic';
+
   const getGenderColor = (gender: string) => {
-    return gender.toLowerCase() === 'male' 
+    const genderLower = (gender || '').toLowerCase();
+    return genderLower === 'male' 
       ? 'bg-blue-100 text-blue-800 border-blue-200'
       : 'bg-pink-100 text-pink-800 border-pink-200';
   };
@@ -55,7 +64,7 @@ const PatientMedicalHistoryDialog: React.FC<PatientMedicalHistoryDialogProps> = 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
-            {patient.name} - Medical History
+            {safeName} - Medical History
           </DialogTitle>
         </DialogHeader>
 
@@ -73,15 +82,15 @@ const PatientMedicalHistoryDialog: React.FC<PatientMedicalHistoryDialogProps> = 
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">{patient.name}</span>
-                    <Badge className={getGenderColor(patient.gender)}>
-                      {patient.age}Y {patient.gender}
+                    <span className="font-medium">{safeName}</span>
+                    <Badge className={getGenderColor(safeGender)}>
+                      {safeAge}Y {safeGender}
                     </Badge>
                   </div>
                   
                   <div className="flex items-center gap-2">
                     <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{patient.mobile}</span>
+                    <span className="text-sm">{safeMobile}</span>
                   </div>
                   
                   {patient.email && (
@@ -95,17 +104,17 @@ const PatientMedicalHistoryDialog: React.FC<PatientMedicalHistoryDialogProps> = 
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{patient.address}</span>
+                    <span className="text-sm">{safeAddress}</span>
                   </div>
                   
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">Last Visit: {formatDate(patient.lastVisit)}</span>
+                    <span className="text-sm">Last Visit: {formatDate(patient.lastVisit || '')}</span>
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    <Badge className={getTypeColor(patient.type)}>
-                      {patient.type === 'clinic' ? 'Clinic Patient' : 'Camp Patient'}
+                    <Badge className={getTypeColor(safeType)}>
+                      {safeType === 'clinic' ? 'Clinic Patient' : 'Camp Patient'}
                     </Badge>
                   </div>
                 </div>
@@ -161,13 +170,13 @@ const PatientMedicalHistoryDialog: React.FC<PatientMedicalHistoryDialogProps> = 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                 <div className="p-3 bg-green-50 rounded-lg border border-green-200">
                   <p className="text-xs font-medium text-green-700 mb-1">Patient Type</p>
-                  <p className="text-sm font-semibold text-green-800 capitalize">{patient.type}</p>
+                  <p className="text-sm font-semibold text-green-800 capitalize">{safeType}</p>
                 </div>
                 
                 <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="text-xs font-medium text-blue-700 mb-1">Age Group</p>
                   <p className="text-sm font-semibold text-blue-800">
-                    {patient.age < 18 ? 'Minor' : patient.age < 60 ? 'Adult' : 'Senior'}
+                    {safeAge < 18 ? 'Minor' : safeAge < 60 ? 'Adult' : 'Senior'}
                   </p>
                 </div>
                 

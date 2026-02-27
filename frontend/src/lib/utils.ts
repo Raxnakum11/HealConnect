@@ -6,11 +6,12 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // Date formatting utilities
-export const formatDate = (dateString: string | Date) => {
+export const formatDate = (dateString: string | Date | undefined | null) => {
+  if (!dateString) return '';
   try {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) {
-      return dateString?.toString() || '';
+      return String(dateString) || '';
     }
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -18,15 +19,16 @@ export const formatDate = (dateString: string | Date) => {
       day: 'numeric'
     });
   } catch (error) {
-    return dateString?.toString() || '';
+    return String(dateString) || '';
   }
 };
 
-export const formatDateTime = (dateString: string | Date) => {
+export const formatDateTime = (dateString: string | Date | undefined | null) => {
+  if (!dateString) return '';
   try {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) {
-      return dateString?.toString() || '';
+      return String(dateString) || '';
     }
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -37,7 +39,7 @@ export const formatDateTime = (dateString: string | Date) => {
       hour12: true
     });
   } catch (error) {
-    return dateString?.toString() || '';
+    return String(dateString) || '';
   }
 };
 
