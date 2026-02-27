@@ -15,7 +15,7 @@ interface Camp {
   location: string;
   description: string;
   contactInfo: string;
-  status: 'planned' | 'ongoing' | 'completed';
+  status: 'planned' | 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
   patients: string[];
 }
 

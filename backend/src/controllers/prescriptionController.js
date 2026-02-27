@@ -570,22 +570,33 @@ const getMyPrescriptions = asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 });
 
   // Format prescriptions for patient view
-  const formattedPrescriptions = prescriptions.map(prescription => ({
-    id: prescription._id,
-    prescribedDate: prescription.createdAt,
-    doctorName: `${prescription.doctorId.firstName} ${prescription.doctorId.lastName}`,
-    instructions: prescription.additionalNotes || 'Take as directed',
-    nextVisitDate: prescription.followUpDate,
-    priority: prescription.status === 'active' ? 'medium' : 'low',
-    type: prescription.status === 'active' ? 'current' : 'past',
-    status: prescription.status,
-    symptoms: prescription.symptoms,
-    diagnosis: prescription.diagnosis,
-    campInfo: prescription.campId ? {
-      name: prescription.campId.name,
-      location: prescription.campId.location
-    } : null
-  }));
+  const formattedPrescriptions = prescriptions.map(prescription => {
+    // Safely get doctor name
+    let doctorName = 'Dr. Unknown';
+    if (prescription.doctorId) {
+      const firstName = prescription.doctorId.firstName || '';
+      const lastName = prescription.doctorId.lastName || '';
+      const fullName = `${firstName} ${lastName}`.trim();
+      doctorName = fullName ? `Dr. ${fullName}` : 'Dr. Himanshu Sonagara';
+    }
+    
+    return {
+      id: prescription._id,
+      prescribedDate: prescription.createdAt,
+      doctorName: doctorName,
+      instructions: prescription.additionalNotes || 'Take as directed',
+      nextVisitDate: prescription.followUpDate,
+      priority: prescription.status === 'active' ? 'medium' : 'low',
+      type: prescription.status === 'active' ? 'current' : 'past',
+      status: prescription.status,
+      symptoms: prescription.symptoms,
+      diagnosis: prescription.diagnosis,
+      campInfo: prescription.campId ? {
+        name: prescription.campId.name,
+        location: prescription.campId.location
+      } : null
+    };
+  });
 
   res.status(200).json({
     success: true,

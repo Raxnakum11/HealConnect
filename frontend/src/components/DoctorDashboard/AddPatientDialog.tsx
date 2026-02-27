@@ -14,7 +14,7 @@ interface Camp {
   location: string;
   description: string;
   contactInfo: string;
-  status: 'planned' | 'ongoing' | 'completed';
+  status: 'planned' | 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
   patients: string[];
 }
 
@@ -69,8 +69,32 @@ export default function AddPatientDialog({
   onAddPatient,
   camps
 }: AddPatientDialogProps) {
-  const availableCamps = camps || [];
-  const activeCamps = availableCamps.filter(camp => camp.status === 'planned' || camp.status === 'ongoing');
+  // Safely process camps with full error handling
+  let activeCamps: { id: string; title: string; location: string; date: string }[] = [];
+  
+  try {
+    const availableCamps = Array.isArray(camps) ? camps : [];
+    activeCamps = availableCamps
+      .filter(camp => {
+        if (!camp) return false;
+        const hasId = camp.id || (camp as any)._id;
+        const isActive = camp.status === 'planned' || camp.status === 'scheduled' || camp.status === 'ongoing';
+        return hasId && isActive;
+      })
+      .map(camp => {
+        const id = String(camp.id || (camp as any)._id || '');
+        return {
+          id,
+          title: String(camp.title || (camp as any).name || 'Untitled Camp'),
+          location: String(camp.location || 'Unknown'),
+          date: camp.date || ''
+        };
+      })
+      .filter(camp => camp.id); // Final filter for valid ids
+  } catch (err) {
+    console.error('Error processing camps:', err);
+    activeCamps = [];
+  }
   
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -149,9 +173,9 @@ export default function AddPatientDialog({
           </div>
           <div>
             <Label>Gender</Label>
-            <Select value={newPatient.gender} onValueChange={(value) => setNewPatient(prev => ({ ...prev, gender: value }))}>
+            <Select value={newPatient.gender || undefined} onValueChange={(value) => setNewPatient(prev => ({ ...prev, gender: value }))}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder="Select gender" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Male">Male</SelectItem>
@@ -163,29 +187,28 @@ export default function AddPatientDialog({
           {newPatient.type === 'camp' && (
             <div>
               <Label>Select Camp</Label>
-              <Select 
-                value={newPatient.campId} 
-                onValueChange={(value) => setNewPatient(prev => ({ ...prev, campId: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a camp" />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeCamps.length === 0 ? (
-                    <SelectItem value="no-camps" disabled>No camps available</SelectItem>
-                  ) : (
-                    activeCamps.map(camp => (
+              {activeCamps.length === 0 ? (
+                <div className="p-3 border rounded-md bg-muted">
+                  <p className="text-sm text-muted-foreground">
+                    No camps available. Please create a camp first to add camp patients.
+                  </p>
+                </div>
+              ) : (
+                <Select 
+                  value={newPatient.campId || undefined} 
+                  onValueChange={(value) => setNewPatient(prev => ({ ...prev, campId: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a camp" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeCamps.map(camp => (
                       <SelectItem key={camp.id} value={camp.id}>
                         {camp.title} - {camp.location} ({formatDate(camp.date)})
                       </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-              {activeCamps.length === 0 && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  No camps available. Please create a camp first to add camp patients.
-                </p>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             </div>
           )}

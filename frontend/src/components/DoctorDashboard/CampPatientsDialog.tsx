@@ -15,13 +15,14 @@ interface Camp {
   location: string;
   description: string;
   contactInfo: string;
-  status: 'planned' | 'ongoing' | 'completed';
+  status: 'planned' | 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
   patients?: string[];
   registeredPatients?: Patient[];
 }
 
 interface Patient {
   id: string;
+  _id?: string;
   name: string;
   mobile: string;
   email?: string;
@@ -65,16 +66,19 @@ const CampPatientsDialog: React.FC<CampPatientsDialogProps> = ({
     if (!value) return '';
     if (typeof value === 'string') return value;
     if (typeof value === 'object') {
-      return value.id || value._id || '';
+      return String(value.id || value._id || '');
     }
-    return '';
+    return String(value);
   };
 
+  // Get camp id - handle both id and _id from backend
+  const campId = normalizeCampId(camp.id) || normalizeCampId((camp as any)._id);
+
   // Get genuinely registered camp patients only
-  const registeredPatients = allPatients.filter((patient) => {
+  const registeredPatients = (allPatients || []).filter((patient) => {
+    if (!patient || patient.type !== 'camp') return false;
     const patientCampId = normalizeCampId(patient.campId);
-    const currentCampId = normalizeCampId(camp.id);
-    return patient.type === 'camp' && patientCampId && currentCampId && patientCampId === currentCampId;
+    return patientCampId && campId && patientCampId === campId;
   });
 
   const getStatusColor = (status: string) => {
@@ -84,7 +88,10 @@ const CampPatientsDialog: React.FC<CampPatientsDialogProps> = ({
       case 'ongoing':
         return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'planned':
+      case 'scheduled':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800 border-red-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -108,26 +115,26 @@ const CampPatientsDialog: React.FC<CampPatientsDialogProps> = ({
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{formatDate(camp.date)}</span>
+                    <span className="text-sm">{formatDate(camp.date || '')}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{camp.location}</span>
+                    <span className="text-sm">{camp.location || 'Unknown location'}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{camp.contactInfo}</span>
+                    <span className="text-sm">{camp.contactInfo || 'No contact info'}</span>
                   </div>
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <Badge className={getStatusColor(camp.status)}>
-                      {camp.status.charAt(0).toUpperCase() + camp.status.slice(1)}
+                    <Badge className={getStatusColor(camp.status || 'scheduled')}>
+                      {(camp.status || 'scheduled').charAt(0).toUpperCase() + (camp.status || 'scheduled').slice(1)}
                     </Badge>
                   </div>
                   <div className="text-sm text-muted-foreground">
                     <FileText className="h-4 w-4 inline mr-1" />
-                    {camp.description}
+                    {camp.description || 'No description available'}
                   </div>
                 </div>
               </div>
@@ -152,8 +159,8 @@ const CampPatientsDialog: React.FC<CampPatientsDialogProps> = ({
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {registeredPatients.map((patient) => (
-                  <Card key={patient.id} className="hover:shadow-md transition-shadow">
+                {registeredPatients.map((patient, index) => (
+                  <Card key={patient.id || patient._id || index} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
@@ -163,23 +170,23 @@ const CampPatientsDialog: React.FC<CampPatientsDialogProps> = ({
                             onClick={() => handlePatientClick(patient)}
                             title="Click to view medical history"
                           >
-                            {patient.name}
+                            {patient.name || 'Unknown Patient'}
                             <ExternalLink className="h-3 w-3 opacity-50" />
                           </h4>
                         </div>
                         <Badge variant="outline" className="text-xs">
-                          {patient.age}Y {patient.gender}
+                          {patient.age || '?'}Y {patient.gender || ''}
                         </Badge>
                       </div>
                       
                       <div className="space-y-2 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
                           <Phone className="h-3 w-3" />
-                          <span>{patient.mobile}</span>
+                          <span>{patient.mobile || 'No phone'}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <MapPin className="h-3 w-3" />
-                          <span className="truncate">{patient.address}</span>
+                          <span className="truncate">{patient.address || 'No address'}</span>
                         </div>
                         {patient.bloodGroup && (
                           <div className="flex items-center gap-2">
