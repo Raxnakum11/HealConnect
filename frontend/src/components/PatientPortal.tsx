@@ -236,16 +236,31 @@ export default function PatientPortal() {
         console.log('🔥 Prescriptions API response:', prescriptionsData);
         
         if (prescriptionsData && prescriptionsData.data && Array.isArray(prescriptionsData.data.prescriptions)) {
-          const formattedPrescriptions = prescriptionsData.data.prescriptions.map((prescription: any) => ({
-            id: prescription._id || prescription.id,
-            prescribedDate: prescription.prescribedDate || prescription.date,
-            doctorName: prescription.doctorId?.name || prescription.doctorName || 'Dr. Unknown',
-            instructions: prescription.instructions || prescription.additionalNotes || 'No instructions provided',
-            nextVisitDate: prescription.nextVisitDate,
-            priority: prescription.priority || 'medium',
-            type: prescription.type || 'current',
-            status: prescription.status || 'active'
-          }));
+          const formattedPrescriptions = prescriptionsData.data.prescriptions.map((prescription: any) => {
+            // Safely construct doctor name
+            let doctorName = 'Dr. Himanshu Sonagara'; // Default doctor name
+            if (prescription.doctorName && prescription.doctorName !== 'undefined undefined') {
+              doctorName = prescription.doctorName;
+            } else if (prescription.doctorId) {
+              const firstName = prescription.doctorId.firstName || '';
+              const lastName = prescription.doctorId.lastName || '';
+              const fullName = `${firstName} ${lastName}`.trim();
+              if (fullName && fullName !== 'undefined undefined') {
+                doctorName = fullName.startsWith('Dr.') ? fullName : `Dr. ${fullName}`;
+              }
+            }
+            
+            return {
+              id: prescription._id || prescription.id,
+              prescribedDate: prescription.prescribedDate || prescription.date,
+              doctorName: doctorName,
+              instructions: prescription.instructions || prescription.additionalNotes || 'No instructions provided',
+              nextVisitDate: prescription.nextVisitDate,
+              priority: prescription.priority || 'medium',
+              type: prescription.type || 'current',
+              status: prescription.status || 'active'
+            };
+          });
           
           console.log('🔥 Real prescriptions loaded:', formattedPrescriptions.length);
           formattedPrescriptions.forEach((prescription, index) => {

@@ -15,7 +15,7 @@ interface Camp {
   location: string;
   description: string;
   contactInfo: string;
-  status: 'planned' | 'ongoing' | 'completed';
+  status: 'planned' | 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
   patients: string[];
 }
 
@@ -124,29 +124,29 @@ const Patients: React.FC<PatientsProps> = ({
         
         <TabsContent value="clinic">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-            {clinicPatients.map((patient) => (
-              <Card key={patient.id} className="cursor-pointer hover:shadow-lg transition-all group">
+            {clinicPatients.filter(p => p && (p.id || (p as any)._id)).map((patient, index) => (
+              <Card key={patient.id || (patient as any)._id || `clinic-patient-${index}`} className="cursor-pointer hover:shadow-lg transition-all group">
                 <CardContent className="p-4">
                   <div className="flex justify-between items-start mb-3">
                     <div onClick={() => { setSelectedPatient(patient); setShowPatientHistory(true); }}>
-                      <h3 className="font-semibold text-sm group-hover:text-primary">{patient.name}</h3>
-                      <p className="text-xs text-muted-foreground">ID: {patient.id}</p>
+                      <h3 className="font-semibold text-sm group-hover:text-primary">{patient.name || 'Unknown'}</h3>
+                      <p className="text-xs text-muted-foreground">ID: {patient.id || (patient as any)._id || 'N/A'}</p>
                     </div>
                     <div className="flex flex-col gap-1">
                       <Button size="sm" variant="ghost" onClick={() => { setSelectedPatient(patient); setShowPrescriptionDialog(true); }} className="h-6 w-6 p-0">
                         <FileEdit className="w-3 h-3" />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleDeletePatient(patient.id)} className="h-6 w-6 p-0">
+                      <Button size="sm" variant="ghost" onClick={() => handleDeletePatient(patient.id || (patient as any)._id)} className="h-6 w-6 p-0">
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
                   </div>
                   <div className="space-y-1">
                     <div className="flex justify-between">
-                      <Badge variant="outline" className="text-xs">{patient.age}y {patient.gender}</Badge>
+                      <Badge variant="outline" className="text-xs">{patient.age || '?'}y {patient.gender || ''}</Badge>
                       <Badge variant="default" className="text-xs">Clinic</Badge>
                     </div>
-                    <p className="text-xs"><strong>Mobile:</strong> {patient.mobile}</p>
+                    <p className="text-xs"><strong>Mobile:</strong> {patient.mobile || 'N/A'}</p>
                     <p className="text-xs"><strong>Last Visit:</strong> {formatDate(patient.lastVisit)}</p>
                     <p className="text-xs"><strong>Visits:</strong> {patient.visitHistory?.length || 0}</p>
                   </div>
@@ -158,33 +158,33 @@ const Patients: React.FC<PatientsProps> = ({
         
         <TabsContent value="camp">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-            {campPatients.map((patient) => (
-              <Card key={patient.id} className="cursor-pointer hover:shadow-lg transition-all group">
+            {campPatients.filter(p => p && (p.id || (p as any)._id)).map((patient, index) => (
+              <Card key={patient.id || (patient as any)._id || `camp-patient-${index}`} className="cursor-pointer hover:shadow-lg transition-all group">
                 <CardContent className="p-4">
                   <div className="flex justify-between items-start mb-3">
                     <div onClick={() => { setSelectedPatient(patient); setShowPatientHistory(true); }}>
-                      <h3 className="font-semibold text-sm group-hover:text-primary">{patient.name}</h3>
-                      <p className="text-xs text-muted-foreground">ID: {patient.id}</p>
+                      <h3 className="font-semibold text-sm group-hover:text-primary">{patient.name || 'Unknown'}</h3>
+                      <p className="text-xs text-muted-foreground">ID: {patient.id || (patient as any)._id || 'N/A'}</p>
                     </div>
                     <div className="flex flex-col gap-1">
                       <Button size="sm" variant="ghost" onClick={() => { setSelectedPatient(patient); setShowPrescriptionDialog(true); }} className="h-6 w-6 p-0">
                         <FileEdit className="w-3 h-3" />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleDeletePatient(patient.id)} className="h-6 w-6 p-0">
+                      <Button size="sm" variant="ghost" onClick={() => handleDeletePatient(patient.id || (patient as any)._id)} className="h-6 w-6 p-0">
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
                   </div>
                   <div className="space-y-1">
                     <div className="flex justify-between">
-                      <Badge variant="outline" className="text-xs">{patient.age}y {patient.gender}</Badge>
+                      <Badge variant="outline" className="text-xs">{patient.age || '?'}y {patient.gender || ''}</Badge>
                       <Badge variant="secondary" className="text-xs">Camp</Badge>
                     </div>
-                    <p className="text-xs"><strong>Mobile:</strong> {patient.mobile}</p>
+                    <p className="text-xs"><strong>Mobile:</strong> {patient.mobile || 'N/A'}</p>
                     <p className="text-xs"><strong>Last Visit:</strong> {formatDate(patient.lastVisit)}</p>
                     <p className="text-xs"><strong>Visits:</strong> {patient.visitHistory?.length || 0}</p>
                     {patient.campId && (
-                      <p className="text-xs"><strong>Camp:</strong> {patient.campId}</p>
+                      <p className="text-xs"><strong>Camp:</strong> {typeof patient.campId === 'object' ? ((patient.campId as any)._id || (patient.campId as any).id || 'Unknown') : patient.campId}</p>
                     )}
                   </div>
                 </CardContent>

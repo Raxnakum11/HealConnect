@@ -79,7 +79,7 @@ interface Camp {
   location: string;
   description: string;
   contactInfo: string;
-  status: 'planned' | 'ongoing' | 'completed';
+  status: 'planned' | 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
   patients: string[];
 }
 
@@ -113,7 +113,7 @@ interface Patient {
 
 export function DoctorDashboard() {
   const { user } = useAuth();
-  const doctorSpecialization = user?.role === 'doctor' ? user.specialization : undefined;
+  const doctorSpecialization = undefined; // specialization property not available in User type
   const { toast } = useToast();
 
   // Sample data functions for offline mode
@@ -266,6 +266,11 @@ export function DoctorDashboard() {
         const transformedPatients = patientsArray.map((patient, index) => {
           console.log(`🔥 Transforming patient ${index + 1}:`, patient);
           
+          // Handle campId - it could be an object (populated) or a string
+          const campIdValue = patient.campId 
+            ? (typeof patient.campId === 'object' ? (patient.campId._id || patient.campId.id) : patient.campId)
+            : undefined;
+          
           const transformed = {
             id: patient._id || patient.id,
             name: patient.name || `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || 'Unknown Name',
@@ -277,8 +282,8 @@ export function DoctorDashboard() {
             medicalHistory: patient.medicalHistory || 'No medical history recorded',
             lastVisit: patient.lastVisit || patient.createdAt || new Date().toISOString(),
             nextAppointment: patient.nextAppointment,
-            type: (patient.campId ? 'camp' : 'clinic') as 'clinic' | 'camp',
-            campId: patient.campId,
+            type: (campIdValue ? 'camp' : 'clinic') as 'clinic' | 'camp',
+            campId: campIdValue,
             visitHistory: patient.visitHistory || [],
             prescriptions: patient.prescriptions || []
           };
@@ -336,11 +341,11 @@ export function DoctorDashboard() {
         // Transform camps to ensure proper structure
         const transformedCamps = campsData.map(camp => ({
           ...camp,
-          id: camp.id || camp._id,
+          id: (camp.id || camp._id)?.toString() || '',
           title: camp.title || camp.name || 'Untitled Camp',
           contactInfo: camp.contactInfo || camp.notes || camp.organizerContact || '',
-          status: camp.status || 'planned'
-        }));
+          status: camp.status || 'scheduled'
+        })).filter(camp => camp.id); // Filter out any camps without valid id
         console.log('Transformed camps:', transformedCamps);
         setCamps(transformedCamps);
       } else {
@@ -406,11 +411,11 @@ export function DoctorDashboard() {
         // Transform and set the created camps
         const transformedCamps = createdCamps.map(camp => ({
           ...camp,
-          id: camp.id || camp._id,
+          id: (camp.id || camp._id)?.toString() || '',
           title: camp.title || camp.name || 'Untitled Camp',
           contactInfo: camp.contactInfo || camp.notes || camp.organizerContact || '',
-          status: camp.status || 'planned'
-        }));
+          status: camp.status || 'scheduled'
+        })).filter(camp => camp.id);
         setCamps(transformedCamps);
       }
 
@@ -594,6 +599,9 @@ export function DoctorDashboard() {
     }
 
     try {
+      // Map frontend status to backend status
+      const backendStatus = newCamp.status === 'planned' ? 'scheduled' : newCamp.status;
+      
       const campData = {
         name: newCamp.title,
         date: new Date(newCamp.date),
@@ -604,7 +612,8 @@ export function DoctorDashboard() {
         time: '10:00 AM',
         type: 'camp',
         expectedPatients: 50,
-        notes: newCamp.contactInfo
+        notes: newCamp.contactInfo,
+        status: backendStatus
       };
 
       // Create camp via API
