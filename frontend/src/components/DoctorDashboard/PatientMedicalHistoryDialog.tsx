@@ -7,18 +7,19 @@ import { User, Phone, MapPin, Calendar, Heart, FileText, Activity } from 'lucide
 import { formatDate } from '@/lib/utils';
 
 interface Patient {
-  id: string;
-  name: string;
-  mobile: string;
+  id?: string;
+  _id?: string;
+  name?: string;
+  mobile?: string;
   email?: string;
-  age: number;
-  gender: string;
-  address: string;
-  medicalHistory: string;
+  age?: number;
+  gender?: string;
+  address?: string;
+  medicalHistory?: string;
   lastVisit?: string;
   nextAppointment?: string;
   bloodGroup?: string;
-  type: "clinic" | "camp";
+  type?: "clinic" | "camp";
   campId?: string;
   visitHistory?: any[];
   prescriptions?: any[];

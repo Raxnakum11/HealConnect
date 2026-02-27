@@ -8,32 +8,33 @@ import { formatDate } from '@/lib/utils';
 import PatientMedicalHistoryDialog from './PatientMedicalHistoryDialog';
 
 interface Camp {
-  id: string;
-  title: string;
+  id?: string;
+  _id?: string;
+  title?: string;
   name?: string;
-  date: string;
-  location: string;
-  description: string;
-  contactInfo: string;
-  status: 'planned' | 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
+  date?: string;
+  location?: string;
+  description?: string;
+  contactInfo?: string;
+  status?: 'planned' | 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
   patients?: string[];
   registeredPatients?: Patient[];
 }
 
 interface Patient {
-  id: string;
+  id?: string;
   _id?: string;
-  name: string;
-  mobile: string;
+  name?: string;
+  mobile?: string;
   email?: string;
-  age: number;
-  gender: string;
-  address: string;
-  medicalHistory: string;
+  age?: number;
+  gender?: string;
+  address?: string;
+  medicalHistory?: string;
   lastVisit?: string;
   nextAppointment?: string;
   bloodGroup?: string;
-  type: "clinic" | "camp";
+  type?: "clinic" | "camp";
   campId?: string;
   visitHistory?: any[];
   prescriptions?: any[];
@@ -55,11 +56,16 @@ const CampPatientsDialog: React.FC<CampPatientsDialogProps> = ({
   const [showMedicalHistory, setShowMedicalHistory] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
 
-  if (!camp) return null;
+  // Early return if no camp
+  if (!camp) {
+    return null;
+  }
 
   const handlePatientClick = (patient: Patient) => {
-    setSelectedPatient(patient);
-    setShowMedicalHistory(true);
+    if (patient) {
+      setSelectedPatient(patient);
+      setShowMedicalHistory(true);
+    }
   };
 
   const normalizeCampId = (value: any): string => {
@@ -71,15 +77,29 @@ const CampPatientsDialog: React.FC<CampPatientsDialogProps> = ({
     return String(value);
   };
 
-  // Get camp id - handle both id and _id from backend
-  const campId = normalizeCampId(camp.id) || normalizeCampId((camp as any)._id);
+  // Safe getters for camp properties
+  const campId = normalizeCampId(camp.id) || normalizeCampId(camp._id) || '';
+  const campTitle = camp.title || camp.name || 'Camp Details';
+  const campDate = camp.date || '';
+  const campLocation = camp.location || 'Unknown location';
+  const campContactInfo = camp.contactInfo || 'No contact info';
+  const campStatus = camp.status || 'scheduled';
+  const campDescription = camp.description || 'No description available';
 
-  // Get genuinely registered camp patients only
-  const registeredPatients = (allPatients || []).filter((patient) => {
-    if (!patient || patient.type !== 'camp') return false;
-    const patientCampId = normalizeCampId(patient.campId);
-    return patientCampId && campId && patientCampId === campId;
-  });
+  // Get registered camp patients with safe filtering
+  let registeredPatients: Patient[] = [];
+  try {
+    const safePatients = Array.isArray(allPatients) ? allPatients : [];
+    registeredPatients = safePatients.filter((patient) => {
+      if (!patient) return false;
+      if (patient.type !== 'camp') return false;
+      const patientCampId = normalizeCampId(patient.campId);
+      return patientCampId && campId && patientCampId === campId;
+    });
+  } catch (error) {
+    console.error('Error filtering patients:', error);
+    registeredPatients = [];
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -98,121 +118,132 @@ const CampPatientsDialog: React.FC<CampPatientsDialogProps> = ({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            {camp.title || camp.name || 'Camp Details'}
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              {campTitle}
+            </DialogTitle>
+          </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-6">
-          {/* Camp Information */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{formatDate(camp.date || '')}</span>
+          <div className="flex-1 overflow-y-auto space-y-6">
+            {/* Camp Information */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{formatDate(campDate)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{campLocation}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{campContactInfo}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{camp.location || 'Unknown location'}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{camp.contactInfo || 'No contact info'}</span>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Badge className={getStatusColor(campStatus)}>
+                        {campStatus.charAt(0).toUpperCase() + campStatus.slice(1)}
+                      </Badge>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      <FileText className="h-4 w-4 inline mr-1" />
+                      {campDescription}
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Badge className={getStatusColor(camp.status || 'scheduled')}>
-                      {(camp.status || 'scheduled').charAt(0).toUpperCase() + (camp.status || 'scheduled').slice(1)}
-                    </Badge>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    <FileText className="h-4 w-4 inline mr-1" />
-                    {camp.description || 'No description available'}
-                  </div>
-                </div>
+              </CardContent>
+            </Card>
+
+            {/* Registered Patients */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Registered Patients ({registeredPatients.length})
+                </h3>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Registered Patients */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Registered Patients ({registeredPatients.length})
-              </h3>
+              {registeredPatients.length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No patients registered for this camp yet.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {registeredPatients.map((patient, index) => {
+                    const patientId = patient?.id || patient?._id || `patient-${index}`;
+                    const patientName = patient?.name || 'Unknown Patient';
+                    const patientAge = patient?.age ?? '?';
+                    const patientGender = patient?.gender || '';
+                    const patientMobile = patient?.mobile || 'No phone';
+                    const patientAddress = patient?.address || 'No address';
+                    
+                    return (
+                      <Card key={patientId} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                              <h4 
+                                className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline transition-colors flex items-center gap-1"
+                                onClick={() => handlePatientClick(patient)}
+                                title="Click to view medical history"
+                              >
+                                {patientName}
+                                <ExternalLink className="h-3 w-3 opacity-50" />
+                              </h4>
+                            </div>
+                            <Badge variant="outline" className="text-xs">
+                              {patientAge}Y {patientGender}
+                            </Badge>
+                          </div>
+                          
+                          <div className="space-y-2 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-2">
+                              <Phone className="h-3 w-3" />
+                              <span>{patientMobile}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-3 w-3" />
+                              <span className="truncate">{patientAddress}</span>
+                            </div>
+                            {patient?.bloodGroup && (
+                              <div className="flex items-center gap-2">
+                                <span className="h-3 w-3 bg-red-500 rounded-full"></span>
+                                <span>{patient.bloodGroup}</span>
+                              </div>
+                            )}
+                            {patient?.lastVisit && (
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-3 w-3" />
+                                <span>Last visit: {formatDate(patient.lastVisit)}</span>
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-
-            {registeredPatients.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No patients registered for this camp yet.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {registeredPatients.map((patient, index) => (
-                  <Card key={patient.id || patient._id || index} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <h4 
-                            className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline transition-colors flex items-center gap-1"
-                            onClick={() => handlePatientClick(patient)}
-                            title="Click to view medical history"
-                          >
-                            {patient.name || 'Unknown Patient'}
-                            <ExternalLink className="h-3 w-3 opacity-50" />
-                          </h4>
-                        </div>
-                        <Badge variant="outline" className="text-xs">
-                          {patient.age || '?'}Y {patient.gender || ''}
-                        </Badge>
-                      </div>
-                      
-                      <div className="space-y-2 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-3 w-3" />
-                          <span>{patient.mobile || 'No phone'}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-3 w-3" />
-                          <span className="truncate">{patient.address || 'No address'}</span>
-                        </div>
-                        {patient.bloodGroup && (
-                          <div className="flex items-center gap-2">
-                            <span className="h-3 w-3 bg-red-500 rounded-full"></span>
-                            <span>{patient.bloodGroup}</span>
-                          </div>
-                        )}
-                        {patient.lastVisit && (
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-3 w-3" />
-                            <span>Last visit: {formatDate(patient.lastVisit)}</span>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
           </div>
-        </div>
 
-        <div className="flex justify-end pt-4 border-t">
-          <Button onClick={onClose}>Close</Button>
-        </div>
-      </DialogContent>
+          <div className="flex justify-end pt-4 border-t">
+            <Button onClick={onClose}>Close</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Patient Medical History Dialog */}
       <PatientMedicalHistoryDialog
@@ -220,7 +251,7 @@ const CampPatientsDialog: React.FC<CampPatientsDialogProps> = ({
         onClose={() => setShowMedicalHistory(false)}
         patient={selectedPatient}
       />
-    </Dialog>
+    </>
   );
 };
 

@@ -266,6 +266,11 @@ export function DoctorDashboard() {
         const transformedPatients = patientsArray.map((patient, index) => {
           console.log(`🔥 Transforming patient ${index + 1}:`, patient);
           
+          // Handle campId - it could be an object (populated) or a string
+          const campIdValue = patient.campId 
+            ? (typeof patient.campId === 'object' ? (patient.campId._id || patient.campId.id) : patient.campId)
+            : undefined;
+          
           const transformed = {
             id: patient._id || patient.id,
             name: patient.name || `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || 'Unknown Name',
@@ -277,8 +282,8 @@ export function DoctorDashboard() {
             medicalHistory: patient.medicalHistory || 'No medical history recorded',
             lastVisit: patient.lastVisit || patient.createdAt || new Date().toISOString(),
             nextAppointment: patient.nextAppointment,
-            type: (patient.campId ? 'camp' : 'clinic') as 'clinic' | 'camp',
-            campId: patient.campId,
+            type: (campIdValue ? 'camp' : 'clinic') as 'clinic' | 'camp',
+            campId: campIdValue,
             visitHistory: patient.visitHistory || [],
             prescriptions: patient.prescriptions || []
           };
