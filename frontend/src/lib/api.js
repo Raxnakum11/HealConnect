@@ -443,6 +443,23 @@ export class NotificationsAPI {
   static async getEmailHistory() {
     return HttpClient.get('/notifications/email/history');
   }
+
+  // Medicine Alert APIs
+  static async getMedicineAlertStatus(expiryDays = 30, threshold = 10) {
+    return HttpClient.get(`/notifications/medicine/status?expiryDays=${expiryDays}&threshold=${threshold}`);
+  }
+
+  static async sendMedicineExpiryAlert(expiryDays = 30) {
+    return HttpClient.post('/notifications/medicine/expiry-alert', { expiryDays });
+  }
+
+  static async sendLowStockAlert(threshold = 10) {
+    return HttpClient.post('/notifications/medicine/low-stock-alert', { threshold });
+  }
+
+  static async sendMedicineAlerts(expiryDays = 30, lowStockThreshold = 10) {
+    return HttpClient.post('/notifications/medicine/alerts', { expiryDays, lowStockThreshold });
+  }
 }
 
 // ============================================================

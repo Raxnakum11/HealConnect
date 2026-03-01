@@ -3,7 +3,11 @@ const {
   sendEmailNotification,
   sendBulkEmailNotifications,
   testEmailConfiguration,
-  getEmailHistory
+  getEmailHistory,
+  sendMedicineExpiryAlert,
+  sendLowStockAlert,
+  sendMedicineAlerts,
+  getMedicineAlertStatus
 } = require('../controllers/notificationController');
 const { authenticateToken, requireDoctor } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/errorHandler');
@@ -95,6 +99,44 @@ router.get(
   '/email/history',
   requireDoctor,
   getEmailHistory
+);
+
+// ==================== MEDICINE ALERT ROUTES ====================
+
+// @route   GET /api/notifications/medicine/status
+// @desc    Get medicine alert status (preview without sending)
+// @access  Private (Doctor only)
+router.get(
+  '/medicine/status',
+  requireDoctor,
+  getMedicineAlertStatus
+);
+
+// @route   POST /api/notifications/medicine/expiry-alert
+// @desc    Send medicine expiry alert email
+// @access  Private (Doctor only)
+router.post(
+  '/medicine/expiry-alert',
+  requireDoctor,
+  sendMedicineExpiryAlert
+);
+
+// @route   POST /api/notifications/medicine/low-stock-alert
+// @desc    Send low stock alert email
+// @access  Private (Doctor only)
+router.post(
+  '/medicine/low-stock-alert',
+  requireDoctor,
+  sendLowStockAlert
+);
+
+// @route   POST /api/notifications/medicine/alerts
+// @desc    Send combined medicine alerts (expiry + low stock)
+// @access  Private (Doctor only)
+router.post(
+  '/medicine/alerts',
+  requireDoctor,
+  sendMedicineAlerts
 );
 
 module.exports = router;

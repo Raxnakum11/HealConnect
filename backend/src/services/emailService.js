@@ -429,6 +429,315 @@ class EmailService {
     `;
   }
 
+  // Send medicine expiry alert notification
+  async sendMedicineExpiryAlert(doctorEmail, medicineData) {
+    const subject = '⚠️ Medicine Expiry Alert - HealConnect';
+    const html = this.getMedicineExpiryTemplate(medicineData);
+    
+    return await this.sendEmail({
+      to: doctorEmail,
+      subject,
+      html
+    });
+  }
+
+  // Send low stock alert notification
+  async sendLowStockAlert(doctorEmail, medicineData) {
+    const subject = '📦 Low Stock Alert - HealConnect';
+    const html = this.getLowStockTemplate(medicineData);
+    
+    return await this.sendEmail({
+      to: doctorEmail,
+      subject,
+      html
+    });
+  }
+
+  // Send combined medicine alerts (expiry + low stock)
+  async sendMedicineAlerts(doctorEmail, alertData) {
+    const subject = '🔔 Medicine Inventory Alert - HealConnect';
+    const html = this.getMedicineAlertsTemplate(alertData);
+    
+    return await this.sendEmail({
+      to: doctorEmail,
+      subject,
+      html
+    });
+  }
+
+  // Template for medicine expiry alert
+  getMedicineExpiryTemplate(data) {
+    const medicineRows = data.medicines.map(med => `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${med.name}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${med.batch}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${med.quantity} ${med.unit}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; color: ${med.daysToExpiry <= 7 ? '#ef4444' : '#f59e0b'}; font-weight: bold;">
+          ${new Date(med.expiryDate).toLocaleDateString()} (${med.daysToExpiry} days)
+        </td>
+      </tr>
+    `).join('');
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 700px; margin: 0 auto; padding: 20px; }
+        .header { background: #f59e0b; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background: #f8f9fa; }
+        .alert-card { background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #f59e0b; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th { background: #f59e0b; color: white; padding: 12px; text-align: left; }
+        .warning-box { background: #fef3c7; border: 1px solid #f59e0b; padding: 15px; border-radius: 8px; margin: 15px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>⚠️ HealConnect</h1>
+          <h2>Medicine Expiry Alert</h2>
+        </div>
+        <div class="content">
+          <div class="alert-card">
+            <h3>Dear Doctor,</h3>
+            <p>The following medicines in your inventory are expiring soon and require your attention:</p>
+            
+            <table>
+              <thead>
+                <tr>
+                  <th>Medicine Name</th>
+                  <th>Batch</th>
+                  <th>Quantity</th>
+                  <th>Expiry Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${medicineRows}
+              </tbody>
+            </table>
+            
+            <div class="warning-box">
+              <h4>⚠️ Recommended Actions:</h4>
+              <ul>
+                <li>Review expiring medicines and plan disposal if necessary</li>
+                <li>Prioritize using medicines expiring soon</li>
+                <li>Reorder replacements before stock runs out</li>
+                <li>Update inventory after taking action</li>
+              </ul>
+            </div>
+            
+            <p><strong>Total expiring medicines: ${data.medicines.length}</strong></p>
+          </div>
+        </div>
+        <div class="footer">
+          <p>This is an automated alert from HealConnect Medicine Inventory System.</p>
+          <p>Generated at: ${new Date().toLocaleString()}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+  }
+
+  // Template for low stock alert
+  getLowStockTemplate(data) {
+    const medicineRows = data.medicines.map(med => `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${med.name}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${med.batch}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; color: ${med.quantity <= 5 ? '#ef4444' : '#f59e0b'}; font-weight: bold;">
+          ${med.quantity} ${med.unit}
+        </td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${med.type}</td>
+      </tr>
+    `).join('');
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 700px; margin: 0 auto; padding: 20px; }
+        .header { background: #ef4444; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background: #f8f9fa; }
+        .alert-card { background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #ef4444; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th { background: #ef4444; color: white; padding: 12px; text-align: left; }
+        .critical-box { background: #fee2e2; border: 1px solid #ef4444; padding: 15px; border-radius: 8px; margin: 15px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>📦 HealConnect</h1>
+          <h2>Low Stock Alert</h2>
+        </div>
+        <div class="content">
+          <div class="alert-card">
+            <h3>Dear Doctor,</h3>
+            <p>The following medicines in your inventory are running low and need restocking:</p>
+            
+            <table>
+              <thead>
+                <tr>
+                  <th>Medicine Name</th>
+                  <th>Batch</th>
+                  <th>Current Stock</th>
+                  <th>Type</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${medicineRows}
+              </tbody>
+            </table>
+            
+            <div class="critical-box">
+              <h4>🔴 Immediate Action Required:</h4>
+              <ul>
+                <li>Reorder low stock medicines immediately</li>
+                <li>Contact your suppliers for urgent deliveries</li>
+                <li>Consider alternative medicines if needed</li>
+                <li>Update inventory after restocking</li>
+              </ul>
+            </div>
+            
+            <p><strong>Total low stock items: ${data.medicines.length}</strong></p>
+          </div>
+        </div>
+        <div class="footer">
+          <p>This is an automated alert from HealConnect Medicine Inventory System.</p>
+          <p>Generated at: ${new Date().toLocaleString()}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+  }
+
+  // Template for combined medicine alerts
+  getMedicineAlertsTemplate(data) {
+    const expiryRows = data.expiringMedicines?.length > 0 ? data.expiringMedicines.map(med => `
+      <tr>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;">${med.name}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;">${med.batch}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;">${med.quantity}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee; color: #f59e0b; font-weight: bold;">
+          ${new Date(med.expiryDate).toLocaleDateString()} (${med.daysToExpiry} days)
+        </td>
+      </tr>
+    `).join('') : '';
+
+    const lowStockRows = data.lowStockMedicines?.length > 0 ? data.lowStockMedicines.map(med => `
+      <tr>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;">${med.name}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;">${med.batch}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee; color: #ef4444; font-weight: bold;">
+          ${med.quantity} ${med.unit}
+        </td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;">${med.type}</td>
+      </tr>
+    `).join('') : '';
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 700px; margin: 0 auto; padding: 20px; }
+        .header { background: #7c3aed; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background: #f8f9fa; }
+        .section { background: white; padding: 20px; border-radius: 8px; margin: 15px 0; }
+        .expiry-section { border-left: 4px solid #f59e0b; }
+        .stock-section { border-left: 4px solid #ef4444; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th { padding: 10px; text-align: left; }
+        .th-expiry { background: #f59e0b; color: white; }
+        .th-stock { background: #ef4444; color: white; }
+        .summary-box { background: #f3e8ff; border: 1px solid #7c3aed; padding: 15px; border-radius: 8px; margin: 15px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🔔 HealConnect</h1>
+          <h2>Medicine Inventory Alert</h2>
+        </div>
+        <div class="content">
+          <div class="summary-box">
+            <h3>📊 Alert Summary</h3>
+            <p>⚠️ <strong>Expiring Soon:</strong> ${data.expiringMedicines?.length || 0} medicines</p>
+            <p>📦 <strong>Low Stock:</strong> ${data.lowStockMedicines?.length || 0} medicines</p>
+          </div>
+          
+          ${data.expiringMedicines?.length > 0 ? `
+          <div class="section expiry-section">
+            <h3>⚠️ Medicines Expiring Soon (within ${data.expiryDays || 30} days)</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th class="th-expiry">Medicine</th>
+                  <th class="th-expiry">Batch</th>
+                  <th class="th-expiry">Quantity</th>
+                  <th class="th-expiry">Expiry Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${expiryRows}
+              </tbody>
+            </table>
+          </div>
+          ` : ''}
+          
+          ${data.lowStockMedicines?.length > 0 ? `
+          <div class="section stock-section">
+            <h3>📦 Low Stock Medicines (below ${data.lowStockThreshold || 10} units)</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th class="th-stock">Medicine</th>
+                  <th class="th-stock">Batch</th>
+                  <th class="th-stock">Current Stock</th>
+                  <th class="th-stock">Type</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${lowStockRows}
+              </tbody>
+            </table>
+          </div>
+          ` : ''}
+          
+          <div style="background: #dbeafe; padding: 15px; border-radius: 8px; margin: 15px 0;">
+            <h4>📋 Recommended Actions:</h4>
+            <ul>
+              <li>Review and dispose of expired or near-expiry medicines safely</li>
+              <li>Reorder low stock medicines from suppliers</li>
+              <li>Update your inventory records after taking action</li>
+              <li>Set up regular inventory checks to prevent stockouts</li>
+            </ul>
+          </div>
+        </div>
+        <div class="footer">
+          <p>This is an automated alert from HealConnect Medicine Inventory System.</p>
+          <p>Generated at: ${new Date().toLocaleString()}</p>
+          <p style="color: #7c3aed;">📧 Alerts are sent to: ${data.alertEmail || 'codern1112@gmail.com'}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+  }
+
   // Send appointment status notification (approved/rejected)
   async sendAppointmentStatusNotification(patientEmail, appointmentData, status, notes = '') {
     const subject = `Appointment ${status.charAt(0).toUpperCase() + status.slice(1)} - HealConnect`;

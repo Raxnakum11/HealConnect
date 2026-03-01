@@ -55,6 +55,9 @@ const prescriptionRoutes = require('./src/routes/prescriptionRoutes');
 const notificationRoutes = require('./src/routes/notificationRoutes');
 const appointmentRoutes = require('./src/routes/appointmentRoutes');
 
+// Import automatic medicine alert service
+const medicineAlertService = require('./src/services/medicineAlertService');
+
 const app = express();
 
 // Connect to database
@@ -189,6 +192,9 @@ const server = app.listen(PORT, () => {
 ║  • Prescriptions: http://localhost:${PORT}/api/prescriptions           ║
 ╚════════════════════════════════════════════════════════════════════════╝
   `);
+
+  // Initialize automatic medicine alerts (expiry & low stock)
+  medicineAlertService.init();
 });
 
 // Handle unhandled promise rejections
