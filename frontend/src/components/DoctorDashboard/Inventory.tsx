@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn, formatDate } from '@/lib/utils';
-import { Download, Upload, Plus, Building2, Tent, Package, Trash2 } from 'lucide-react';
+import { Download, Upload, Plus, Building2, Tent, Package, Trash2, Bell, Mail, AlertTriangle } from 'lucide-react';
 
 interface Medicine {
   id: string;
@@ -31,6 +31,7 @@ interface InventoryProps {
   importMedicines: () => void;
   setShowMedicineDialog: (show: boolean) => void;
   removeMedicine: (id: string) => void;
+  lowStockMedicines?: Medicine[];
 }
 
 const Inventory: React.FC<InventoryProps> = ({
@@ -44,13 +45,31 @@ const Inventory: React.FC<InventoryProps> = ({
   exportExpiringMedicines,
   importMedicines,
   setShowMedicineDialog,
-  removeMedicine
+  removeMedicine,
+  lowStockMedicines = []
 }) => {
+  // Count low stock medicines (quantity <= 10)
+  const lowStockCount = lowStockMedicines.length || medicines.filter(m => m.quantity <= 10).length;
+  const hasAlerts = expiringMedicines.length > 0 || lowStockCount > 0;
   return (
     <>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-2xl font-bold">Medicine Inventory</h2>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold">Medicine Inventory</h2>
+          {hasAlerts && (
+            <Badge variant="destructive" className="animate-pulse">
+              <AlertTriangle className="w-3 h-3 mr-1" />
+              {expiringMedicines.length + lowStockCount} Alerts
+            </Badge>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {hasAlerts && (
+            <Badge variant="outline" className="text-green-600 border-green-600">
+              <Mail className="w-3 h-3 mr-1" />
+              Auto Alerts: ON
+            </Badge>
+          )}
           <Button onClick={exportExpiringMedicines} variant="outline" size="sm">
             <Download className="mr-2 h-4 w-4" />
             Export Expiring
@@ -65,6 +84,38 @@ const Inventory: React.FC<InventoryProps> = ({
           </Button>
         </div>
       </div>
+
+      {/* Alert Summary Cards */}
+      {hasAlerts && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {expiringMedicines.length > 0 && (
+            <Card className="border-orange-200 bg-orange-50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 bg-orange-100 rounded-full">
+                  <AlertTriangle className="w-5 h-5 text-orange-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-orange-800">{expiringMedicines.length} Medicines Expiring Soon</p>
+                  <p className="text-sm text-orange-600">Within next 30 days</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {lowStockCount > 0 && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 bg-red-100 rounded-full">
+                  <Package className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-red-800">{lowStockCount} Low Stock Items</p>
+                  <p className="text-sm text-red-600">Quantity below 10 units</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-4">
         <Select value={medicineFilter} onValueChange={(value: "all" | "clinic" | "camp" | "others") => setMedicineFilter(value)}>

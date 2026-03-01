@@ -1057,6 +1057,7 @@ export function DoctorDashboard() {
               removeMedicine={handleDeleteMedicine}
               exportExpiringMedicines={exportExpiringMedicines}
               importMedicines={importMedicines}
+              lowStockMedicines={medicines.filter(m => m.quantity <= 10)}
             />
           </TabsContent>
 

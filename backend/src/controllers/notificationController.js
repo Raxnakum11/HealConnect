@@ -1,5 +1,7 @@
 const EmailService = require('../services/emailService');
 const Patient = require('../models/Patient');
+const Medicine = require('../models/Medicine');
+const User = require('../models/User');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 const emailService = new EmailService();
@@ -298,9 +300,288 @@ const getEmailHistory = asyncHandler(async (req, res) => {
   });
 });
 
+// Hardcoded alert email (will be changed to doctor's email later)
+const ALERT_EMAIL = 'codern1112@gmail.com';
+
+// @desc    Check and send medicine expiry alerts
+// @route   POST /api/notifications/medicine/expiry-alert
+// @access  Private (Doctor only)
+const sendMedicineExpiryAlert = asyncHandler(async (req, res) => {
+  const { expiryDays = 30 } = req.body; // Default: medicines expiring within 30 days
+  
+  const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() + expiryDays);
+  
+  // Find medicines expiring soon for this doctor
+  const expiringMedicines = await Medicine.find({
+    doctorId: req.user.id,
+    isActive: true,
+    expiryDate: { $lte: expiryDate, $gt: new Date() }
+  }).sort({ expiryDate: 1 });
+  
+  if (expiringMedicines.length === 0) {
+    return res.status(200).json({
+      success: true,
+      message: 'No medicines expiring soon. No alert sent.',
+      data: { expiringCount: 0 }
+    });
+  }
+  
+  // Transform medicines for email template
+  const medicinesData = expiringMedicines.map(med => ({
+    name: med.name,
+    batch: med.batch,
+    quantity: med.quantity,
+    unit: med.unit,
+    expiryDate: med.expiryDate,
+    daysToExpiry: Math.ceil((new Date(med.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)),
+    type: med.type
+  }));
+  
+  // Send alert to hardcoded email (will be doctor's email later)
+  // TODO: Change to doctor's email: const doctorEmail = req.user.email;
+  const alertEmail = ALERT_EMAIL;
+  
+  const emailResult = await emailService.sendMedicineExpiryAlert(alertEmail, {
+    medicines: medicinesData,
+    expiryDays
+  });
+  
+  if (emailResult.success) {
+    res.status(200).json({
+      success: true,
+      message: `Expiry alert sent to ${alertEmail}`,
+      data: {
+        expiringCount: expiringMedicines.length,
+        medicines: medicinesData,
+        emailSentTo: alertEmail
+      }
+    });
+  } else {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send expiry alert email',
+      error: emailResult.error
+    });
+  }
+});
+
+// @desc    Check and send low stock alerts
+// @route   POST /api/notifications/medicine/low-stock-alert
+// @access  Private (Doctor only)
+const sendLowStockAlert = asyncHandler(async (req, res) => {
+  const { threshold = 10 } = req.body; // Default: medicines with quantity <= 10
+  
+  // Find low stock medicines for this doctor
+  const lowStockMedicines = await Medicine.find({
+    doctorId: req.user.id,
+    isActive: true,
+    quantity: { $lte: threshold }
+  }).sort({ quantity: 1 });
+  
+  if (lowStockMedicines.length === 0) {
+    return res.status(200).json({
+      success: true,
+      message: 'No low stock medicines found. No alert sent.',
+      data: { lowStockCount: 0 }
+    });
+  }
+  
+  // Transform medicines for email template
+  const medicinesData = lowStockMedicines.map(med => ({
+    name: med.name,
+    batch: med.batch,
+    quantity: med.quantity,
+    unit: med.unit,
+    type: med.type,
+    expiryDate: med.expiryDate
+  }));
+  
+  // Send alert to hardcoded email (will be doctor's email later)
+  // TODO: Change to doctor's email: const doctorEmail = req.user.email;
+  const alertEmail = ALERT_EMAIL;
+  
+  const emailResult = await emailService.sendLowStockAlert(alertEmail, {
+    medicines: medicinesData,
+    threshold
+  });
+  
+  if (emailResult.success) {
+    res.status(200).json({
+      success: true,
+      message: `Low stock alert sent to ${alertEmail}`,
+      data: {
+        lowStockCount: lowStockMedicines.length,
+        medicines: medicinesData,
+        emailSentTo: alertEmail
+      }
+    });
+  } else {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send low stock alert email',
+      error: emailResult.error
+    });
+  }
+});
+
+// @desc    Check and send combined medicine alerts (expiry + low stock)
+// @route   POST /api/notifications/medicine/alerts
+// @access  Private (Doctor only)
+const sendMedicineAlerts = asyncHandler(async (req, res) => {
+  const { expiryDays = 30, lowStockThreshold = 10 } = req.body;
+  
+  const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() + expiryDays);
+  
+  // Find expiring medicines
+  const expiringMedicines = await Medicine.find({
+    doctorId: req.user.id,
+    isActive: true,
+    expiryDate: { $lte: expiryDate, $gt: new Date() }
+  }).sort({ expiryDate: 1 });
+  
+  // Find low stock medicines
+  const lowStockMedicines = await Medicine.find({
+    doctorId: req.user.id,
+    isActive: true,
+    quantity: { $lte: lowStockThreshold }
+  }).sort({ quantity: 1 });
+  
+  if (expiringMedicines.length === 0 && lowStockMedicines.length === 0) {
+    return res.status(200).json({
+      success: true,
+      message: 'No medicine alerts. Inventory is healthy!',
+      data: { expiringCount: 0, lowStockCount: 0 }
+    });
+  }
+  
+  // Transform medicines data
+  const expiringData = expiringMedicines.map(med => ({
+    name: med.name,
+    batch: med.batch,
+    quantity: med.quantity,
+    unit: med.unit,
+    expiryDate: med.expiryDate,
+    daysToExpiry: Math.ceil((new Date(med.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)),
+    type: med.type
+  }));
+  
+  const lowStockData = lowStockMedicines.map(med => ({
+    name: med.name,
+    batch: med.batch,
+    quantity: med.quantity,
+    unit: med.unit,
+    type: med.type
+  }));
+  
+  // Send combined alert
+  // TODO: Change to doctor's email: const doctorEmail = req.user.email;
+  const alertEmail = ALERT_EMAIL;
+  
+  const emailResult = await emailService.sendMedicineAlerts(alertEmail, {
+    expiringMedicines: expiringData,
+    lowStockMedicines: lowStockData,
+    expiryDays,
+    lowStockThreshold,
+    alertEmail
+  });
+  
+  if (emailResult.success) {
+    res.status(200).json({
+      success: true,
+      message: `Medicine alerts sent to ${alertEmail}`,
+      data: {
+        expiringCount: expiringMedicines.length,
+        lowStockCount: lowStockMedicines.length,
+        expiringMedicines: expiringData,
+        lowStockMedicines: lowStockData,
+        emailSentTo: alertEmail
+      }
+    });
+  } else {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send medicine alerts',
+      error: emailResult.error
+    });
+  }
+});
+
+// @desc    Get medicine alert status (preview without sending)
+// @route   GET /api/notifications/medicine/status
+// @access  Private (Doctor only)
+const getMedicineAlertStatus = asyncHandler(async (req, res) => {
+  const expiryDays = parseInt(req.query.expiryDays) || 30;
+  const lowStockThreshold = parseInt(req.query.threshold) || 10;
+  
+  const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() + expiryDays);
+  
+  // Find expiring medicines
+  const expiringMedicines = await Medicine.find({
+    doctorId: req.user.id,
+    isActive: true,
+    expiryDate: { $lte: expiryDate, $gt: new Date() }
+  }).sort({ expiryDate: 1 });
+  
+  // Find low stock medicines
+  const lowStockMedicines = await Medicine.find({
+    doctorId: req.user.id,
+    isActive: true,
+    quantity: { $lte: lowStockThreshold }
+  }).sort({ quantity: 1 });
+  
+  // Critical: expiring in 7 days or quantity <= 5
+  const criticalExpiryDate = new Date();
+  criticalExpiryDate.setDate(criticalExpiryDate.getDate() + 7);
+  
+  const criticalExpiring = expiringMedicines.filter(med => new Date(med.expiryDate) <= criticalExpiryDate);
+  const criticalLowStock = lowStockMedicines.filter(med => med.quantity <= 5);
+  
+  res.status(200).json({
+    success: true,
+    message: 'Medicine alert status retrieved',
+    data: {
+      summary: {
+        totalExpiring: expiringMedicines.length,
+        totalLowStock: lowStockMedicines.length,
+        criticalExpiring: criticalExpiring.length,
+        criticalLowStock: criticalLowStock.length,
+        needsAttention: expiringMedicines.length > 0 || lowStockMedicines.length > 0
+      },
+      expiringMedicines: expiringMedicines.map(med => ({
+        id: med._id,
+        name: med.name,
+        batch: med.batch,
+        quantity: med.quantity,
+        unit: med.unit,
+        expiryDate: med.expiryDate,
+        daysToExpiry: Math.ceil((new Date(med.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)),
+        isCritical: new Date(med.expiryDate) <= criticalExpiryDate
+      })),
+      lowStockMedicines: lowStockMedicines.map(med => ({
+        id: med._id,
+        name: med.name,
+        batch: med.batch,
+        quantity: med.quantity,
+        unit: med.unit,
+        type: med.type,
+        isCritical: med.quantity <= 5
+      })),
+      alertEmail: ALERT_EMAIL,
+      parameters: { expiryDays, lowStockThreshold }
+    }
+  });
+});
+
 module.exports = {
   sendEmailNotification,
   sendBulkEmailNotifications,
   testEmailConfiguration,
-  getEmailHistory
+  getEmailHistory,
+  sendMedicineExpiryAlert,
+  sendLowStockAlert,
+  sendMedicineAlerts,
+  getMedicineAlertStatus
 };
